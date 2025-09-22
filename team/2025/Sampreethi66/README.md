@@ -1,3 +1,6 @@
+Project issue: https://github.com/ModelEarth/projects/issues/36
+Demo (after PR #26 merges): ./ux.html
+
 # Flask UX - ACS + BLS Filters
 
 ## What it does
