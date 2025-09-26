@@ -332,15 +332,17 @@ async function loadBaseParamsSelect() {
 
     // Fetch parameter paths CSV
     console.log('Fetching CSV from /realitystream/parameters/parameter-paths.csv');
-    const response = await fetch('/realitystream/parameters/parameter-paths.csv');
+    const response = await fetch('/realitystream/parameters/parameter-paths.csv', { cache: 'no-store' });
     console.log('CSV fetch response status:', response.status);
-    
+
     if (!response.ok) {
         throw new Error(`Failed to fetch CSV: ${response.status} ${response.statusText}`);
     }
-    
-    const csvText = await response.text();
-    console.log('CSV content length:', csvText.length);
+
+    let csvText = await response.text();
+    // Strip UTF-8 BOM if present
+    csvText = csvText.replace(/^\uFEFF/, '');
+    console.debug('[parambase] CSV loaded (no-store), length:', csvText.length);
     console.log('CSV first 100 chars:', csvText.substring(0, 100));
     
     // Parse CSV
@@ -478,6 +480,9 @@ async function loadBaseParamsSelect() {
             await loadParambaseYAML(firstOption.key, firstOption.url);
         }
     }
+
+    // Ensure UI elements are created after dropdown is populated
+    ensureParambaseUI();
 }
 
 // Function to load YAML content from parambase URL
@@ -641,6 +646,169 @@ function updateHashParam(key, value) {
     
     // Use existing goHash function from localsite.js
     goHash(hash);
+}
+
+// Helper function to get the parambase select element (supports both #parambase and #parambase-select)
+function getParambaseSelect() {
+    return document.getElementById('parambase') || document.getElementById('parambase-select');
+}
+
+// Helper function to ensure parambase UI elements exist (idempotent)
+function ensureParambaseUI() {
+    const selectEl = getParambaseSelect();
+    if (!selectEl) {
+        console.warn('ensureParambaseUI: No parambase select element found');
+        return;
+    }
+
+    // Check if wrapper row already exists
+    let wrapperRow = document.getElementById('parambase-row');
+    if (wrapperRow) {
+        // Already exists, just update the YAML link
+        updateYamlLink(selectEl);
+        return;
+    }
+
+    // Create wrapper row
+    wrapperRow = document.createElement('div');
+    wrapperRow.id = 'parambase-row';
+    wrapperRow.style.display = 'flex';
+    wrapperRow.style.alignItems = 'center';
+    wrapperRow.style.gap = '6px';
+    wrapperRow.style.marginBottom = '10px';
+
+    // Create label
+    const label = document.createElement('label');
+    label.id = 'parambase-label';
+    label.textContent = 'Base parameters:';
+    label.style.fontSize = '14px';
+    label.style.marginRight = '8px';
+    label.style.marginBottom = '0';
+
+    // Create copy button
+    const copyButton = document.createElement('button');
+    copyButton.id = 'parambase-copy';
+    copyButton.type = 'button';
+    copyButton.textContent = 'Copy shareable link';
+    copyButton.style.fontSize = '12px';
+    copyButton.style.marginLeft = '6px';
+    copyButton.style.padding = '2px 6px';
+    copyButton.style.whiteSpace = 'nowrap';
+
+    // Create Open YAML link
+    const yamlLink = document.createElement('a');
+    yamlLink.id = 'parambase-yaml';
+    yamlLink.target = '_blank';
+    yamlLink.rel = 'noopener';
+    yamlLink.textContent = 'Open YAML';
+    yamlLink.style.fontSize = '12px';
+    yamlLink.style.marginLeft = '6px';
+    yamlLink.style.textDecoration = 'none';
+    yamlLink.style.color = 'inherit';
+
+    // Create copy status message (initially hidden)
+    const copyStatus = document.createElement('span');
+    copyStatus.id = 'parambase-copy-status';
+    copyStatus.setAttribute('aria-live', 'polite');
+    copyStatus.textContent = 'Copied!';
+    copyStatus.style.fontSize = '12px';
+    copyStatus.style.color = '#22AA77';
+    copyStatus.style.marginLeft = '4px';
+    copyStatus.style.display = 'none';
+
+    // Create Reset button
+    const resetButton = document.createElement('button');
+    resetButton.id = 'parambase-reset';
+    resetButton.type = 'button';
+    resetButton.textContent = 'Reset';
+    resetButton.className = 'btn btn-white btn-sm';
+    resetButton.title = 'Clear selection and reload';
+    resetButton.style.fontSize = '12px';
+    resetButton.style.marginLeft = '6px';
+    resetButton.style.padding = '2px 6px';
+    resetButton.style.whiteSpace = 'nowrap';
+
+    // Insert elements in correct order: label, select, copy button, yaml link, reset button, status
+    const parent = selectEl.parentNode;
+    parent.insertBefore(wrapperRow, selectEl);
+
+    // Add label to wrapper
+    wrapperRow.appendChild(label);
+
+    // Move select into wrapper
+    wrapperRow.appendChild(selectEl);
+
+    // Add copy button, yaml link, and reset button to wrapper
+    wrapperRow.appendChild(copyButton);
+    wrapperRow.appendChild(yamlLink);
+    wrapperRow.appendChild(resetButton);
+    wrapperRow.appendChild(copyStatus);
+
+    // Set up copy button handler
+    copyButton.addEventListener('click', async function() {
+        try {
+            await navigator.clipboard.writeText(location.href);
+            copyStatus.style.display = 'block';
+            setTimeout(() => {
+                copyStatus.style.display = 'none';
+            }, 1200);
+        } catch (error) {
+            console.error('Failed to copy to clipboard:', error);
+            copyStatus.textContent = 'Copy failed';
+            copyStatus.style.color = '#AA2222';
+            copyStatus.style.display = 'block';
+            setTimeout(() => {
+                copyStatus.style.display = 'none';
+                copyStatus.textContent = 'Copied!';
+                copyStatus.style.color = '#22AA77';
+            }, 1200);
+        }
+    });
+
+    // Set up reset button handler
+    resetButton.addEventListener('click', function() {
+        console.info('[parambase] Reset: cleared hash + localStorage and reloaded');
+
+        // Clear localStorage keys
+        localStorage.removeItem('parambase/value');
+        localStorage.removeItem('parambase/url');
+
+        // Clear the hash completely
+        history.replaceState(null, '', location.pathname + location.search);
+
+        // Set dropdown back to first non-placeholder option (index 1) without triggering hash/localStorage
+        const firstOption = selectEl.options[1];
+        if (firstOption) {
+            selectEl.selectedIndex = 1;
+        }
+
+        // Reload to rebuild the UI from default
+        location.reload();
+    });
+
+    // Update YAML link initially
+    updateYamlLink(selectEl);
+
+    // Add change listener for YAML link updates (only if not already present)
+    if (!selectEl.hasAttribute('data-yaml-listener-added')) {
+        selectEl.addEventListener('change', function() {
+            updateYamlLink(this);
+        });
+        selectEl.setAttribute('data-yaml-listener-added', 'true');
+    }
+}
+
+// Helper function to update the YAML link href
+function updateYamlLink(selectEl) {
+    const yamlLink = document.getElementById('parambase-yaml');
+    if (!yamlLink) return;
+
+    const selectedOption = selectEl.selectedOptions[0];
+    if (selectedOption && selectedOption.dataset && selectedOption.dataset.url) {
+        yamlLink.href = selectedOption.dataset.url;
+    } else {
+        yamlLink.href = '';
+    }
 }
 
 // Helper functions for YAML parsing (moved from anonymous functions)
