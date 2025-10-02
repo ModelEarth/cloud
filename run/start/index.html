@@ -122,14 +122,13 @@
 </head>
 <body>
     <div class="content contentpadding">
+        <a href="../../../team/admin/cloud/" style="float:right">Cloud Integration</a>
         <a href="../">Cloud Run Intro</a>
         <h1>Google Cloud Run Configuration</h1>
-        
-        <div class="current-site">
-            <strong>Main Site:</strong> 
-            <a href="https://notebook-executor-207223955365.us-central1.run.app" target="_blank">
-                Simple Notebook Interface
-            </a>
+
+        <div id="serverStatus" class="status error" style="display: block; margin-bottom: 20px;">
+            <strong>⚠️ Flask server not running - configuration cannot be saved</strong><br>
+            <a href="../" style="color: #721c24; text-decoration: underline;">See setup instructions</a>
         </div>
 
         <form id="configForm">
@@ -238,7 +237,7 @@
         function showFlaskStartupInstructions() {
             const message = `
                 <div style="margin-bottom: 16px;">
-                    <strong>✅ Configuration saved successfully!</strong>
+                    <strong>⚠️ Configuration not saved - Flask server required</strong>
                 </div>
                 <div style="margin-bottom: 16px;">
                     <strong>Next Steps - Start Flask Server with Claude Code CLI:</strong>

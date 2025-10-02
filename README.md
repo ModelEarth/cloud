@@ -3,22 +3,11 @@
 
 ## Our Google Cloud Run
 
-[Cloud Run](run) - We're working toward running a copy of our [RealityStream Colab](/realitystream)
+[Our Cloud Run](run) - is being setup to run our [RealityStream Colab](https://model.earth/realitystream)
 
-Should we move anything from [cloud-main](cloud-main) into the cloud/run folder?
+## Dev Folders
 
-## Flask via Google Cloud - User Folders
-
- folder where you'll add deployment steps to launch a Flask site using Google Cloud. 
-
-For your [handle] use  or your nickname.
-
-Our [webhook repo](https://github.com/modelearth/webhook/) has a sample with Google Cloud Flask deployment steps you can copy and improve.
-
-
-## Integration with localsite navigation
-
-For new development testing, create a [cloud/team/2025/[handle]](https://github.com/modelearth/cloud/)
+For new development testing, create a folder at [cloud/team/2025/[handle]](https://github.com/modelearth/cloud/)
 
 1. Fork and clone our [cloud repo](https://github.com/modelearth/cloud) and [localsite repo](https://github.com/modelearth/localsite). 
 
@@ -36,23 +25,21 @@ Use lowercase and optionally include your last initial.
 
 
 Generally avoid commiting datasets in the cloud repo.  
-Pull datasets directly from other GitHub repos, Google Sheets and/or APIs.
+Load datasets directly from other GitHub repos, Google Sheets and/or APIs.
 
 
-## Firebase
-
-[Firebase + Flask Auth Setup](team/2025/revanth) - For Static hosting with User Auth
-
-## To Explore and Document
-
+## Cloudflare Workers Option
+<!--
 CoLabs + [Anvil](https://anvil.works/learn/tutorials/data-science#connecting-notebooks) + [Plotly](https://plotly.com/python) and [Seaborn](https://seaborn.pydata.org/examples/index.html) + [Cursor](https://www.cursor.com/) 
+-->
+To try: [Cloudflare Workers](https://developers.cloudflare.com/workers/) app.
 
-[Cloudflare Workers](https://developers.cloudflare.com/workers/) to create an app.
 
+## RealityStream Project
 
-## Our ML Projects
+[RealityStream](https://model.earth/realitystream) is our main ML python project, in addition we have:
 
-[RealityStream](/realitystream) is our main ML python project, in addition we have:
-
+[Industry Imputation](https://model.earth/machine-learning) - Estimating business patterns
+<!--
 [Financial](/finance) - Credit market probability analysis  
-[Industry Imputation](/machine-learning) - Estimating business patterns
+-->

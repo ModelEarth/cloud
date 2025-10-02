@@ -66,9 +66,9 @@ else
     echo -e "${YELLOW}Creating project ${PROJECT_ID}...${NC}"
     gcloud projects create ${PROJECT_ID} --name="${PROJECT_NAME:-ModelEarth Run Models}"
     
-    if [ -n "${BILLING_ACCOUNT_ID}" ]; then
+    if [ -n "${GOOGLE_BILLING_ID}" ]; then
         echo -e "${GREEN}Linking billing account...${NC}"
-        gcloud billing projects link ${PROJECT_ID} --billing-account=${BILLING_ACCOUNT_ID}
+        gcloud billing projects link ${PROJECT_ID} --billing-account=${GOOGLE_BILLING_ID}
     else
         echo -e "${YELLOW}Warning: No billing account specified. You may need to link one manually.${NC}"
     fi

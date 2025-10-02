@@ -8,44 +8,89 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 
 <link type="text/css" rel="stylesheet" href="../../localsite/css/base.css" id="/localsite/css/base.css" />
-<link type="text/css" rel="stylesheet" href="../../team/css/common.css" />
 <script type="text/javascript" src="../../localsite/js/localsite.js?showheader=true&showsearch=true"></script>
-<script type="text/javascript" src="../../team/js/common.js"></script>
-<script type="text/javascript" src="../../team/js/setup.js"></script>
 
 <style>
 @media (max-width: 1000px) {
     #issuesWidget {
         display: none;
     }
+
 }
 </style>
 <script>
-// Create OS detection panel using shared function
-autoCreateOSDetectionPanel('#commonSetupDiv');
-
-loadMarkdown("README.md", "readmeDiv", "_parent");
+loadMarkdown("README.md", "readmeDiv", "_parent", 1, function() {
+    // Initialize radio button functionality after markdown loads
+    const localRadio = document.getElementById('localdev');
+    const cloudRadio = document.getElementById('clouddev');
+    const localSpans = document.querySelectorAll('.localdev');
+    const cloudSpans = document.querySelectorAll('.clouddev');
+    
+    // Restore saved choice or default to local
+    const savedChoice = localStorage.getItem('deploymentChoice') || 'local';
+    if (savedChoice === 'cloud') {
+        cloudRadio.checked = true;
+        localRadio.checked = false;
+    } else {
+        localRadio.checked = true;
+        cloudRadio.checked = false;
+    }
+    
+    // Show/hide content based on selection
+    function toggleContent() {
+        const isLocal = localRadio.checked;
+        localSpans.forEach(span => span.style.display = isLocal ? 'block' : 'none');
+        cloudSpans.forEach(span => span.style.display = isLocal ? 'none' : 'block');
+        
+        // Save choice
+        localStorage.setItem('deploymentChoice', isLocal ? 'local' : 'cloud');
+    }
+    
+    // Initial toggle
+    toggleContent();
+    
+    // Add event listeners
+    localRadio.addEventListener('change', toggleContent);
+    cloudRadio.addEventListener('change', toggleContent);
+});
 </script>
 
 </head>
 
 <body>
 <div class="content contentpadding large-list" style="max-width: 1800px;">
-  <div class="floatright">
-    <!-- Issues Widget -->
-    <link rel="stylesheet" href="../../projects/css/issues.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <div id="issuesWidget" 
-         data-container-id="issuesWidget"
-         data-github-owner="ModelEarth"
-         data-detect-current-folder="true"
-         data-multi-repo-roots="webroot,PartnerTools,MaterialScience,modelearth"></div>
-    <script src="../../projects/js/issues.js"></script>
-    <!-- / Issues Widget -->
- </div>
-
   <div id="commonSetupDiv"></div>
   <div id="readmeDiv"></div>
+  <h3>Python Execution Options</h3>
+
+<label>
+  <input type="radio" name="execution" id="simplePython" value="simple"> Simple python
+</label><br>
+<label>
+  <input type="radio" name="execution" id="notebookPython" value="notebook"> Run-Models-bkup.ipynb python
+</label>
+
+<div id="executionInstructions" style="margin-top:10px; font-style:italic;">
+  Please select an option above.
 </div>
+</div>
+<script>
+  const simplePython = document.getElementById('simplePython');
+  const notebookPython = document.getElementById('notebookPython');
+  const execInstructions = document.getElementById('executionInstructions');
+
+  function updateInstructions() {
+    if (simplePython.checked) {
+      execInstructions.innerHTML = "Instructions for running Simple python.";
+    } else if (notebookPython.checked) {
+      execInstructions.innerHTML = "Instructions for running Run-Models-bkup.ipynb python.";
+    }
+  }
+
+  simplePython.addEventListener('change', updateInstructions);
+  notebookPython.addEventListener('change', updateInstructions);
+</script>
+
+
 </body>
 </html>

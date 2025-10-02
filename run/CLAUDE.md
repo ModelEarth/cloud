@@ -32,8 +32,14 @@ source env/bin/activate
 # Install dependencies
 pip install -r requirements.txt
 
-# Run Flask application locally
-python app.py
+# Run Flask application locally in background
+nohup python app.py > app.log 2>&1 &
+
+# Check if server is running
+curl http://localhost:8100
+
+# View logs if needed
+tail -f app.log
 ```
 
 ### Google Cloud Operations

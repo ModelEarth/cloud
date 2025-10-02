@@ -9,11 +9,17 @@ app.register_blueprint(core_blueprint)
 app.register_blueprint(notebook_blueprint)
 
 # Serve JS files
-@app.route('/js/<path:filename>')
+@app.route('/static/js/<path:filename>')
 def serve_js(filename):
-    return send_from_directory('js', filename)
+    return send_from_directory('static/js', filename)
 
 if __name__ == '__main__':
     import os
     port = int(os.environ.get('PORT', 8100))
     app.run(host='0.0.0.0', port=port, debug=True)
+
+from flask import render_template
+
+@app.route('/')
+def home():
+    return render_template('index.html')

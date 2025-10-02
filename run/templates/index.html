@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en-us">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="content-type" content="text/html; charset=UTF-8">
+<title>Google Cloud Run Configuration</title>
+<link rel="shortcut icon" href="data:image/x-icon;," type="image/x-icon">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<link type="text/css" rel="stylesheet" href="../../localsite/css/base.css" id="/localsite/css/base.css" />
+<link type="text/css" rel="stylesheet" href="../../team/css/common.css" />
+<script type="text/javascript" src="../../localsite/js/localsite.js?showheader=true&showsearch=true"></script>
+<script type="text/javascript" src="../../team/js/common.js"></script>
+<script type="text/javascript" src="../../team/js/setup.js"></script>
+
+<style>
+@media (max-width: 1000px) {
+    #issuesWidget {
+        display: none;
+    }
+}
+</style>
+<script>
+// Create OS detection panel using shared function
+autoCreateOSDetectionPanel('#commonSetupDiv');
+
+loadMarkdown("README.md", "readmeDiv", "_parent");
+</script>
+
+</head>
+
+<body>
+<div class="content contentpadding large-list" style="max-width: 1800px;">
+  <div class="floatright">
+    <!-- Issues Widget -->
+    <link rel="stylesheet" href="../../projects/css/issues.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <div id="issuesWidget" 
+         data-container-id="issuesWidget"
+         data-github-owner="ModelEarth"
+         data-detect-current-folder="true"
+         data-multi-repo-roots="webroot,PartnerTools,MaterialScience,modelearth"></div>
+    <script src="../../projects/js/issues.js"></script>
+    <!-- / Issues Widget -->
+ </div>
+
+  <div id="commonSetupDiv"></div>
+  <div id="readmeDiv"></div>
+</div>
+</body>
+</html>

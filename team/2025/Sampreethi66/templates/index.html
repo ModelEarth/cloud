@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>ACS + BLS Filter</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    body { font-family: system-ui, Arial, sans-serif; margin: 20px; }
+    select, button { padding: 6px 8px; margin-right: 8px; }
+    table { border-collapse: collapse; margin-top: 16px; width: 100%; }
+    th, td { border: 1px solid #ddd; padding: 6px; font-size: 14px; }
+    th { background: #f5f5f5; text-align: left; }
+    .muted { color: #666; font-size: 13px; margin-top: 6px; }
+  </style>
+</head>
+<body>
+  <h1>ACS + BLS Filter</h1>
+
+  <label>State:
+    <select id="state"></select>
+  </label>
+
+  <label>County:
+    <select id="county"></select>
+  </label>
+
+  <label>ZIP:
+    <select id="zip"></select>
+  </label>
+
+  <button id="run">Run</button>
+  <button id="debug">Debug</button>
+
+  <div id="count" class="muted"></div>
+  <div id="results"></div>
+
+  <!-- IMPORTANT: load JS from the static file, don't paste JS into this HTML -->
+  <script src="/static/app.js?v=1"></script>
+</body>
+</html>
