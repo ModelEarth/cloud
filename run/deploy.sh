@@ -126,3 +126,5 @@ if [ -f .env ]; then
     fi
     echo -e "${GREEN}Updated .env with service URL${NC}"
 fi
+# Output blank line to help see where command completed
+echo
