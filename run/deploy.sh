@@ -110,7 +110,7 @@ gcloud run deploy ${SERVICE_NAME} \
 # Get the service URL
 SERVICE_URL=$(gcloud run services describe ${SERVICE_NAME} --region=${REGION} --format='value(status.url)')
 
-echo -e "${GREEN}Deployment completed successfully!${NC}"
+echo -e "${GREEN}Deployment completed successfully! [$(date +'%a, %b %-d at %-I:%M %p ET')]${NC}"
 echo -e "${GREEN}Service URL: ${SERVICE_URL}${NC}"
 echo -e "${YELLOW}Next steps:${NC}"
 echo "1. Set up GitHub webhook pointing to: ${SERVICE_URL}/webhook"
