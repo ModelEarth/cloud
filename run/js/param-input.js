@@ -1,3 +1,19 @@
+document.addEventListener('hashChangeEvent', function (event) {
+    console.log("param-input.js detects URL hashChangeEvent");
+    
+    // Reload YAML content for the current parambase
+    const hash = getHash();
+    if (hash.parambase) {
+        const select = document.getElementById('parambase');
+        if (select) {
+            const selectedOption = Array.from(select.options).find(option => option.value === hash.parambase);
+            if (selectedOption && selectedOption.dataset && selectedOption.dataset.url) {
+                loadParambaseYAML(hash.parambase, selectedOption.dataset.url);
+            }
+        }
+    }
+}, false);
+
 function updateYAMLFromHash(parsedContent, hash, addHashKeys) {
     // Sets nested yaml values for textbox while preserving existing structure
     function setNestedValue(obj, path, value) {
@@ -11,9 +27,9 @@ function updateYAMLFromHash(parsedContent, hash, addHashKeys) {
             current = current[key];
         }
 
-        // Set the value at the final key
+        // Set the value at the final key, converting numeric strings to numbers
         const lastKey = keys[keys.length - 1];
-        current[lastKey] = value;
+        current[lastKey] = convertValueType(value);
     }
 
     // Helper function to handle comma-separated values, including encrypted commas
@@ -59,6 +75,26 @@ function updateYAMLFromHash(parsedContent, hash, addHashKeys) {
     return parsedContent;
 }
 
+// Helper function to convert string values to appropriate types
+function convertValueType(value) {
+    if (typeof value !== 'string') return value;
+    
+    // Check if it's a number (integer or decimal)
+    if (/^\d+$/.test(value)) {
+        return parseInt(value, 10);
+    }
+    if (/^\d*\.\d+$/.test(value)) {
+        return parseFloat(value);
+    }
+    
+    // Check if it's a boolean
+    if (value.toLowerCase() === 'true') return true;
+    if (value.toLowerCase() === 'false') return false;
+    
+    // Return as string if no conversion needed
+    return value;
+}
+
 function parseHashParams() {
     const hash = window.location.hash.substring(1);
     const paramsHere = {};
@@ -93,6 +129,9 @@ document.addEventListener('DOMContentLoaded', function() {
     handleHashChange();
   });
   
+  // Add edit detection for paramText
+  setupParamTextEditDetection();
+  
   function loadParamText() {
     const paramTextDiv = document.getElementById('paramText');
     if (!paramTextDiv) return;
@@ -116,6 +155,9 @@ document.addEventListener('DOMContentLoaded', function() {
       parsedContent = updateYAMLFromHash(parsedContent, hash, addHashKeys);
       preContent = convertToYAML(parsedContent);
       preTag.innerHTML = preContent;
+      
+      // Update reset button visibility after content changes
+      updateResetButtonVisibility();
     }
   }
   
@@ -198,6 +240,9 @@ document.addEventListener('DOMContentLoaded', function() {
         loadParamText();
       }
     }
+    
+    // Update reset button visibility after hash changes
+    updateResetButtonVisibility();
   }
 });
 
@@ -528,6 +573,9 @@ function updateParamTextWithBase(baseYamlText) {
         const updatedYaml = convertToYAML(parsedContent);
         
         preTag.innerHTML = updatedYaml;
+        
+        // Update reset button visibility after content changes
+        updateResetButtonVisibility();
     }
 }
 
@@ -541,11 +589,9 @@ function encodeHashValue(value) {
 
 // Helper function to decode hash values
 function decodeHashValue(value) {
-    return String(value)
-        .replace(/\+/g, ' ')    // + to space (URL encoding)
-        .replace(/%20/g, ' ')   // %20 to space
-        .replace(/%26/g, '&')   // %26 to ampersand  
-        .replace(/%3D/g, '=');  // %3D to equals
+    if (!value) return value;
+    return decodeURIComponent(String(value)
+        .replace(/\+/g, ' '));  // + to space (URL encoding), then decode URI components
 }
 
 // Function to show custom path input
@@ -685,50 +731,33 @@ function ensureParambaseUI() {
     label.style.marginRight = '8px';
     label.style.marginBottom = '0';
 
-    // Create copy button
-    const copyButton = document.createElement('button');
-    copyButton.id = 'parambase-copy';
-    copyButton.type = 'button';
-    copyButton.textContent = 'Copy shareable link';
-    copyButton.style.fontSize = '12px';
-    copyButton.style.marginLeft = '6px';
-    copyButton.style.padding = '2px 6px';
-    copyButton.style.whiteSpace = 'nowrap';
 
-    // Create Open YAML link
+    // Create Base YAML link
     const yamlLink = document.createElement('a');
     yamlLink.id = 'parambase-yaml';
     yamlLink.target = '_blank';
     yamlLink.rel = 'noopener';
-    yamlLink.textContent = 'Open YAML';
+    yamlLink.textContent = 'Base YAML';
     yamlLink.style.fontSize = '12px';
     yamlLink.style.marginLeft = '6px';
     yamlLink.style.textDecoration = 'none';
     yamlLink.style.color = 'inherit';
 
-    // Create copy status message (initially hidden)
-    const copyStatus = document.createElement('span');
-    copyStatus.id = 'parambase-copy-status';
-    copyStatus.setAttribute('aria-live', 'polite');
-    copyStatus.textContent = 'Copied!';
-    copyStatus.style.fontSize = '12px';
-    copyStatus.style.color = '#22AA77';
-    copyStatus.style.marginLeft = '4px';
-    copyStatus.style.display = 'none';
 
-    // Create Reset button
+    // Create Reset button (initially hidden)
     const resetButton = document.createElement('button');
     resetButton.id = 'parambase-reset';
     resetButton.type = 'button';
     resetButton.textContent = 'Reset';
     resetButton.className = 'btn btn-white btn-sm';
-    resetButton.title = 'Clear selection and reload';
+    resetButton.title = 'Clear URL parameters and reload base YAML';
     resetButton.style.fontSize = '12px';
     resetButton.style.marginLeft = '6px';
     resetButton.style.padding = '2px 6px';
     resetButton.style.whiteSpace = 'nowrap';
+    resetButton.style.display = 'none'; // Initially hidden
 
-    // Insert elements in correct order: label, select, copy button, yaml link, reset button, status
+    // Insert elements in correct order: label, select, yaml link, reset button
     const parent = selectEl.parentNode;
     parent.insertBefore(wrapperRow, selectEl);
 
@@ -738,61 +767,43 @@ function ensureParambaseUI() {
     // Move select into wrapper
     wrapperRow.appendChild(selectEl);
 
-    // Add copy button, yaml link, and reset button to wrapper
-    wrapperRow.appendChild(copyButton);
+    // Add yaml link and reset button to wrapper
     wrapperRow.appendChild(yamlLink);
     wrapperRow.appendChild(resetButton);
-    wrapperRow.appendChild(copyStatus);
 
-    // Set up copy button handler
-    copyButton.addEventListener('click', async function() {
-        try {
-            await navigator.clipboard.writeText(location.href);
-            copyStatus.style.display = 'block';
-            setTimeout(() => {
-                copyStatus.style.display = 'none';
-            }, 1200);
-        } catch (error) {
-            console.error('Failed to copy to clipboard:', error);
-            copyStatus.textContent = 'Copy failed';
-            copyStatus.style.color = '#AA2222';
-            copyStatus.style.display = 'block';
-            setTimeout(() => {
-                copyStatus.style.display = 'none';
-                copyStatus.textContent = 'Copied!';
-                copyStatus.style.color = '#22AA77';
-            }, 1200);
-        }
-    });
 
     // Set up reset button handler
     resetButton.addEventListener('click', function() {
-        console.info('[parambase] Reset: cleared hash + localStorage and reloaded');
+        console.info('[parambase] Reset: retaining current parambase, clearing other hash values');
 
+        // Get currently selected parambase
+        const currentParambase = selectEl.value;
+        
         // Clear localStorage keys
         localStorage.removeItem('parambase/value');
         localStorage.removeItem('parambase/url');
 
-        // Clear the hash completely
-        history.replaceState(null, '', location.pathname + location.search);
-
-        // Set dropdown back to first non-placeholder option (index 1) without triggering hash/localStorage
-        const firstOption = selectEl.options[1];
-        if (firstOption) {
-            selectEl.selectedIndex = 1;
-        }
-
-        // Reload to rebuild the UI from default
-        location.reload();
+        // Create new URL with only parambase in hash (if one is selected)
+        const newHashString = currentParambase ? `parambase=${encodeURIComponent(currentParambase)}` : '';
+        const newUrl = window.location.pathname + window.location.search + (newHashString ? '#' + newHashString : '');
+        
+        // Update URL directly without using goHash
+        window.history.pushState('', '', newUrl);
+        
+        // Trigger custom hash change event to reload the YAML
+        const hashChangeEvent = new CustomEvent('hashChangeEvent', { detail: { parambase: currentParambase } });
+        document.dispatchEvent(hashChangeEvent);
     });
 
-    // Update YAML link initially
+    // Update YAML link and reset button visibility initially
     updateYamlLink(selectEl);
+    updateResetButtonVisibility();
 
     // Add change listener for YAML link updates (only if not already present)
     if (!selectEl.hasAttribute('data-yaml-listener-added')) {
         selectEl.addEventListener('change', function() {
             updateYamlLink(this);
+            updateResetButtonVisibility();
         });
         selectEl.setAttribute('data-yaml-listener-added', 'true');
     }
@@ -809,6 +820,264 @@ function updateYamlLink(selectEl) {
     } else {
         yamlLink.href = '';
     }
+}
+
+// Helper function to check if current YAML differs from base and show/hide reset button
+function updateResetButtonVisibility() {
+    const resetButton = document.getElementById('parambase-reset');
+    if (!resetButton) return;
+
+    // Check if there are any hash parameters that would modify the YAML content
+    const hash = getHash();
+    const modelHashParams = ["features", "targets", "models"];
+    
+    // Check if any model parameters exist in the hash
+    const hasYamlOverrides = modelHashParams.some(param => {
+        if (hash[param]) return true;
+        // Check for nested parameters like features.data, targets.path, etc.
+        return Object.keys(hash).some(key => key.startsWith(param + '.'));
+    });
+
+    // Show reset button only if there are YAML overrides from URL hash
+    resetButton.style.display = hasYamlOverrides ? 'inline-block' : 'none';
+}
+
+// Function to setup edit detection for paramText
+function setupParamTextEditDetection() {
+    let editTimeout;
+    let baseYamlContent = null;
+    
+    // Function to handle paramText changes
+    function handleParamTextEdit() {
+        console.log('handleParamTextEdit called');
+        const paramTextDiv = document.getElementById('paramText');
+        if (!paramTextDiv) {
+            console.log('No paramTextDiv found');
+            return;
+        }
+        
+        const preTag = paramTextDiv.querySelector('pre');
+        if (!preTag) {
+            console.log('No preTag found');
+            return;
+        }
+        
+        // Get current content
+        const currentContent = preTag.textContent || preTag.innerText;
+        console.log('Current content:', currentContent.substring(0, 100) + '...');
+        
+        // Skip if we don't have base content to compare against
+        if (!baseYamlContent || !currentParambase) {
+            console.log('Missing base content or currentParambase:', { 
+                hasBase: !!baseYamlContent, 
+                currentParambase: currentParambase 
+            });
+            return;
+        }
+        
+        console.log('Base content:', baseYamlContent.substring(0, 100) + '...');
+        
+        try {
+            // Parse both base and current YAML
+            const baseYaml = parseYAML(baseYamlContent);
+            const currentYaml = parseYAML(currentContent);
+            
+            console.log('Parsed YAMLs:', { baseYaml, currentYaml });
+            
+            // Find differences and update hash
+            const differences = findYamlDifferences(baseYaml, currentYaml);
+            console.log('Found differences:', differences);
+            
+            if (Object.keys(differences).length > 0) {
+                console.log('Updating hash with differences:', differences);
+                // Update hash with differences
+                updateHash(differences, true); // true = add to existing hash
+                // Reveal reset button
+                updateResetButtonVisibility();
+            } else {
+                console.log('No differences found, removing model parameters');
+                // No differences, remove model parameters from hash
+                const hash = getHash();
+                const modelHashParams = ["features", "targets", "models"];
+                const toRemove = {};
+                
+                // Remove all model-related parameters
+                modelHashParams.forEach(param => {
+                    if (hash[param]) toRemove[param] = '';
+                    // Also remove nested parameters
+                    Object.keys(hash).forEach(key => {
+                        if (key.startsWith(param + '.')) {
+                            toRemove[key] = '';
+                        }
+                    });
+                });
+                
+                if (Object.keys(toRemove).length > 0) {
+                    updateHash(toRemove, true);
+                }
+                updateResetButtonVisibility();
+            }
+        } catch (error) {
+            console.warn('Error parsing YAML during edit detection:', error);
+        }
+    }
+    
+    // Function to store base YAML content
+    function storeBaseYamlContent() {
+        if (currentParambase && cachedParambaseContent[currentParambase]) {
+            baseYamlContent = cachedParambaseContent[currentParambase];
+        }
+    }
+    
+    // Set up mutation observer for contenteditable changes
+    const paramTextDiv = document.getElementById('paramText');
+    console.log('setupParamTextEditDetection: paramTextDiv found:', !!paramTextDiv);
+    console.log('setupParamTextEditDetection: paramTextDiv contentEditable:', paramTextDiv ? paramTextDiv.contentEditable : 'N/A');
+    
+    if (paramTextDiv) {
+        const preTag = paramTextDiv.querySelector('pre');
+        console.log('setupParamTextEditDetection: preTag found:', !!preTag);
+        
+        // Store initial base content
+        storeBaseYamlContent();
+        
+        // Listen for input events on the contenteditable div (not the pre tag)
+        paramTextDiv.addEventListener('input', function(event) {
+            console.log('Input event detected on paramTextDiv:', event);
+            clearTimeout(editTimeout);
+            editTimeout = setTimeout(handleParamTextEdit, 500); // Debounce 500ms
+        });
+        
+        // Also listen for keyup events as backup
+        paramTextDiv.addEventListener('keyup', function(event) {
+            console.log('Keyup event detected on paramTextDiv:', event.key);
+            clearTimeout(editTimeout);
+            editTimeout = setTimeout(handleParamTextEdit, 500); // Debounce 500ms
+        });
+        
+        console.log('setupParamTextEditDetection: Event listeners attached to paramTextDiv');
+        
+        // Listen for when base content changes
+        if (preTag) {
+            const observer = new MutationObserver(function(mutations) {
+                mutations.forEach(function(mutation) {
+                    if (mutation.type === 'childList' || mutation.type === 'characterData') {
+                        // Update base content when YAML is loaded
+                        setTimeout(storeBaseYamlContent, 100);
+                    }
+                });
+            });
+            
+            observer.observe(preTag, {
+                childList: true,
+                subtree: true,
+                characterData: true
+            });
+        }
+    } else {
+        console.log('setupParamTextEditDetection: No paramTextDiv found, will retry in 1000ms');
+        // Retry setup after 1 second if elements aren't ready yet
+        setTimeout(setupParamTextEditDetection, 1000);
+    }
+}
+
+// Helper function to determine if a change is meaningful (not just whitespace or trivial punctuation)
+function isMeaningfulChange(baseValue, currentValue) {
+    // Convert to strings for comparison
+    const baseStr = String(baseValue || '').trim();
+    const currentStr = String(currentValue || '').trim();
+    
+    // If strings are the same after trimming, not meaningful
+    if (baseStr === currentStr) return false;
+    
+    // Check if the only difference is trailing punctuation (comma, semicolon, etc.)
+    const baseTrimmed = baseStr.replace(/[,;:\s]+$/, '');
+    const currentTrimmed = currentStr.replace(/[,;:\s]+$/, '');
+    
+    // If the content is the same after removing trailing punctuation, not meaningful
+    if (baseTrimmed === currentTrimmed) return false;
+    
+    // Check if the only difference is leading/trailing whitespace or punctuation
+    const baseNormalized = baseStr.replace(/^[\s,;:]+|[\s,;:]+$/g, '');
+    const currentNormalized = currentStr.replace(/^[\s,;:]+|[\s,;:]+$/g, '');
+    
+    if (baseNormalized === currentNormalized) return false;
+    
+    // If we get here, it's a meaningful change
+    return true;
+}
+
+// Function to find differences between base and current YAML
+function findYamlDifferences(baseYaml, currentYaml) {
+    const differences = {};
+    const modelHashParams = ["features", "targets", "models"];
+    
+    // Helper function to flatten nested objects for comparison
+    function flattenObject(obj, prefix = '') {
+        const flattened = {};
+        Object.keys(obj || {}).forEach(key => {
+            const newKey = prefix ? `${prefix}.${key}` : key;
+            if (typeof obj[key] === 'object' && obj[key] !== null && !Array.isArray(obj[key])) {
+                Object.assign(flattened, flattenObject(obj[key], newKey));
+            } else {
+                // Don't flatten arrays - treat them as complete values
+                flattened[newKey] = obj[key];
+            }
+        });
+        return flattened;
+    }
+    
+    // Only compare model-related parameters
+    modelHashParams.forEach(param => {
+        if (currentYaml[param] || baseYaml[param]) {
+            const baseValue = baseYaml[param];
+            const currentValue = currentYaml[param];
+            
+            console.log(`Comparing ${param}:`, { baseValue, currentValue });
+            
+            // For top-level parameters, compare directly without flattening
+            if (JSON.stringify(baseValue) !== JSON.stringify(currentValue)) {
+                if (currentValue !== undefined && currentValue !== null && currentValue !== '') {
+                    // Check if this is a meaningful change (not just whitespace or punctuation)
+                    if (isMeaningfulChange(baseValue, currentValue)) {
+                        console.log(`Found meaningful difference in ${param}:`, currentValue);
+                        differences[param] = currentValue;
+                    } else {
+                        console.log(`Ignoring trivial change in ${param}:`, { base: baseValue, current: currentValue });
+                    }
+                }
+            }
+            
+            // If the parameter is an object, also check nested properties
+            if (typeof currentValue === 'object' && currentValue !== null && !Array.isArray(currentValue)) {
+                const baseFlat = flattenObject(baseValue || {}, param);
+                const currentFlat = flattenObject(currentValue || {}, param);
+                
+                // Find differences in nested properties
+                Object.keys({...baseFlat, ...currentFlat}).forEach(key => {
+                    // Skip the top-level key we already handled
+                    if (key === param) return;
+                    
+                    const baseNestedValue = baseFlat[key];
+                    const currentNestedValue = currentFlat[key];
+                    
+                    if (JSON.stringify(baseNestedValue) !== JSON.stringify(currentNestedValue)) {
+                        if (currentNestedValue !== undefined && currentNestedValue !== null && currentNestedValue !== '') {
+                            // Check if this is a meaningful change for nested properties too
+                            if (isMeaningfulChange(baseNestedValue, currentNestedValue)) {
+                                console.log(`Found meaningful nested difference in ${key}:`, currentNestedValue);
+                                differences[key] = currentNestedValue;
+                            } else {
+                                console.log(`Ignoring trivial nested change in ${key}:`, { base: baseNestedValue, current: currentNestedValue });
+                            }
+                        }
+                    }
+                });
+            }
+        }
+    });
+    
+    return differences;
 }
 
 // Helper functions for YAML parsing (moved from anonymous functions)
