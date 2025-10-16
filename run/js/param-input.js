@@ -823,7 +823,16 @@ function ensureParambaseUI() {
         // Update URL directly without using goHash
         window.history.pushState('', '', newUrl);
         
-        // Trigger custom hash change event to reload the YAML
+        // Directly reload the YAML content immediately
+        if (currentParambase && cachedParambaseContent[currentParambase]) {
+            // Use the cached base YAML for the current parambase
+            updateParamTextWithBase(cachedParambaseContent[currentParambase]);
+        } else {
+            // Fall back to loading from current state
+            loadParamTextFromCurrentState();
+        }
+        
+        // Also trigger custom hash change event for any other listeners
         const hashChangeEvent = new CustomEvent('hashChangeEvent', { detail: { parambase: currentParambase } });
         document.dispatchEvent(hashChangeEvent);
     });
