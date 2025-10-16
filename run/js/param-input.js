@@ -11,8 +11,41 @@ document.addEventListener('hashChangeEvent', function (event) {
                 loadParambaseYAML(hash.parambase, selectedOption.dataset.url);
             }
         }
+    } else {
+        // No parambase - reload using the standard paramText loading process
+        loadParamTextFromCurrentState();
     }
 }, false);
+
+// Function to reload paramText content without affecting the dropdown
+function loadParamTextFromCurrentState() {
+    const paramTextDiv = document.getElementById('paramText');
+    if (!paramTextDiv) return;
+    
+    const preTag = paramTextDiv.querySelector('pre');
+    if (!preTag) return;
+    
+    // Check if we have a current parambase with cached content
+    if (currentParambase && cachedParambaseContent[currentParambase]) {
+        // Use the base YAML and apply any hash overrides
+        updateParamTextWithBase(cachedParambaseContent[currentParambase]);
+    } else {
+        // Fall back to the original loadParamText process
+        let preContent = preTag.innerHTML;
+        let hash = getHash();
+        console.log("loadParamTextFromCurrentState - hash:", hash);
+        
+        const modelHashParams = ["features", "targets", "models"];
+        const addHashKeys = ["features", "targets", "models"];
+        let parsedContent = parseYAML(preContent);
+        parsedContent = updateYAMLFromHash(parsedContent, hash, addHashKeys);
+        preContent = convertToYAML(parsedContent);
+        preTag.innerHTML = preContent;
+        
+        // Update reset button visibility after content changes
+        updateResetButtonVisibility();
+    }
+}
 
 function updateYAMLFromHash(parsedContent, hash, addHashKeys) {
     // Sets nested yaml values for textbox while preserving existing structure
