@@ -389,7 +389,7 @@ function createChooseLinks() {
         <a href="#geoview=country">location</a> 
         <div class="local" style="display:none">
             | <a href="#" onclick="goToPage('/localsite/info'); return false;">features</a> |
-            <a href="#" onclick="goToPage('/data-commons/docs/data'); return false;">targets</a>
+            <a href="#" onclick="goToPage('/localsite/timeline'); return false;">targets</a>
         </div>
         <span style="font-style: italic; font-size: 0.9em;"> (Location selector not yet integrated.)</span>
     `;
