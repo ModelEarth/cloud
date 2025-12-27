@@ -36,7 +36,7 @@ function loadParamTextFromCurrentState() {
         console.log("loadParamTextFromCurrentState - hash:", hash);
         
         const modelHashParams = ["features", "targets", "models"];
-        const addHashKeys = ["features", "targets", "models"];
+        const addHashKeys = ["folder","features", "targets", "models"];
         let parsedContent = parseYAML(preContent);
         parsedContent = updateYAMLFromHash(parsedContent, hash, addHashKeys);
         preContent = convertToYAML(parsedContent);
@@ -65,15 +65,37 @@ function updateYAMLFromHash(parsedContent, hash, addHashKeys) {
         current[lastKey] = convertValueType(value);
     }
 
-    // Helper function to handle comma-separated values, including encrypted commas
-    function handleCommaSeparatedValue(value) {
-        if (typeof value === 'string' && value.includes('%2C')) {
-            return value.split('%2C').map(item => item.trim());
-        } else if (typeof value === 'string' && value.includes(',')) {
-            return value.split(',').map(item => item.trim());
-        }
-        return value;
+
+    function decodeHashParamValue(v) {
+  if (v == null) return v;
+  if (typeof v !== 'string') return v;
+
+  // If string contains percent-encoding, decode it
+  if (/%[0-9A-Fa-f]{2}/.test(v)) {
+    try {
+      return decodeURIComponent(v.replace(/\+/g, '%20'));
+    } catch (e) {
+      return v;
     }
+  }
+  return v;
+}
+
+
+    // Helper function to handle comma-separated values, including encrypted commas
+   function handleCommaSeparatedValue(value) {
+  if (typeof value !== 'string') return value;
+
+  // Decode first (fixes %2F, %2C, etc.)
+  const decoded = decodeHashParamValue(value);
+
+  // If it's comma-separated, return array
+  if (decoded.includes(',')) {
+    return decoded.split(',').map(item => item.trim());
+  }
+  return decoded;
+}
+
 
     // Check if a path should be included based on addHashKeys
     function shouldIncludePath(path) {
@@ -183,7 +205,7 @@ document.addEventListener('DOMContentLoaded', function() {
     
     function insertHashValues(modelHashParams) {
       // Main execution
-      const addHashKeys = ["features", "targets", "models"];
+      const addHashKeys = ["folder","features", "targets", "models"];
       let parsedContent = parseYAML(preContent);
       parsedContent = updateYAMLFromHash(parsedContent, hash, addHashKeys);
       preContent = convertToYAML(parsedContent);
@@ -599,7 +621,7 @@ function updateParamTextWithBase(baseYamlText) {
         // Apply hash overrides
         const hash = getHash();
         const modelHashParams = ["features", "targets", "models"];
-        const addHashKeys = ["features", "targets", "models"];
+        const addHashKeys = ["folder","features", "targets", "models"];
         
         let parsedContent = parseYAML(baseYamlText);
         parsedContent = updateYAMLFromHash(parsedContent, hash, addHashKeys);
@@ -871,7 +893,7 @@ function updateResetButtonVisibility() {
 
     // Check if there are any hash parameters that would modify the YAML content
     const hash = getHash();
-    const modelHashParams = ["features", "targets", "models"];
+    const modelHashParams = ["folder","features", "targets", "models"];
     
     // Check if any model parameters exist in the hash
     const hasYamlOverrides = modelHashParams.some(param => {
@@ -940,7 +962,7 @@ function setupParamTextEditDetection() {
                 console.log('No differences found, removing model parameters');
                 // No differences, remove model parameters from hash
                 const hash = getHash();
-                const modelHashParams = ["features", "targets", "models"];
+                const modelHashParams = ["folder","features", "targets", "models"];
                 const toRemove = {};
                 
                 // Remove all model-related parameters
@@ -1052,7 +1074,7 @@ function isMeaningfulChange(baseValue, currentValue) {
 // Function to find differences between base and current YAML
 function findYamlDifferences(baseYaml, currentYaml) {
     const differences = {};
-    const modelHashParams = ["features", "targets", "models"];
+    const modelHashParams = ["folder","features", "targets", "models"];
     
     // Helper function to flatten nested objects for comparison
     function flattenObject(obj, prefix = '') {
