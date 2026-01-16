@@ -14,10 +14,11 @@ Setup Google Cloud Run service with Flask for a Jupyter notebook and GitHub.
 
 ## Setup Webroot
 
-<span class="num">1</span> **[Setup Webroot](https://model.earth/webroot/)** - We're using Claude Code CLI for easy automation
+<span class="num">1</span> **[Setup Webroot](https://model.earth/webroot/)** - The "cloud", "chat", "docker" and "data-pipeline" repos ares included as submodules.
 
 <span class="localdev" style="display:none">
-The Flask server will start on port 8100 (or PORT environment variable if set).
+<!--The Flask server will start on port 8100 (or PORT environment variable if set).-->
+
 </span>
 
 <span class="clouddev" style="display:none">
@@ -53,6 +54,8 @@ cd cloud/run
 # Create and edit .env with your GitHub token and billing account
 cp -i .env.example .env
 ```
+
+TO DO: If there is no cloud/run/.env file, fallback to docker/.env. The "docker" repo is a webroot submodule.
 
 <pre class="clouddev" style="display:none"><code>#For Cloud Deployment: Generate UI access token for login<br>./rotate-token.sh</code></pre></span>
 
