@@ -302,13 +302,33 @@
     UI Access Token
   </div>
 
-  <input id="tokenInput" type="password" placeholder="Paste UI_ACCESS_TOKEN here"
-    style="width:100%; padding:10px; border-radius:8px; border:1px solid rgba(0,0,0,0.2);" />
+<div style="
+  display: flex;
+  gap: 10px;
+  align-items: center;
+">
+  <input
+    id="tokenInput"
+    type="password"
+    placeholder="Paste UI_ACCESS_TOKEN here"
+    style="
+      flex: 1;
+      padding:10px;
+      border-radius:8px;
+      border:1px solid rgba(0,0,0,0.2);
+    "
+  />
 
-  <div style="margin-top:10px;">
-    <button id="saveTokenBtn" style="padding:8px 14px;">Save Token</button>
-    <span id="tokenSavedMsg" style="margin-left:10px; color:green; display:none;">Saved ✅</span>
-  </div>
+  <button id="saveTokenBtn" style="padding:8px 14px;">
+    Save Token
+  </button>
+
+  <span id="tokenSavedMsg"
+        style="color:green; display:none;">
+    Saved ✅
+  </span>
+</div>
+
 
    
 </div>
