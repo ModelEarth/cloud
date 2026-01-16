@@ -164,33 +164,130 @@
       color: #555;
       font-style: italic;
     }
+
+    /* ===== Flask Status Banner (matches data-pipeline admin) ===== */
+#serverStatusBanner {
+  display: none;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 14px 18px;
+  margin-bottom: 16px;
+
+  background: #3b261d; /* dark brown */
+  color: #ffcc9c;
+
+  border-bottom: 1px solid #5a3a2a;
+  border-radius: 6px;
+
+  font-size: 16px;
+  font-weight: 500;
+
+  display: flex;
+ align-items: flex-start;
+
+  justify-content: space-between;
+  gap: 16px;
+}
+
+#serverStatusLeft {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+  min-width: 0;
+  align-self: flex-start; 
+}
+
+#serverStatusIcon {
+  font-size: 18px;
+}
+
+#serverStatusText {
+  white-space: normal;    
+  overflow-wrap: anywhere;
+  flex: 1;                
+  min-width: 0;           
+}
+
+/* Buttons */
+#serverStatusActions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+#retryServerCheck {
+  font-size: 0.875rem;                      
+  padding: 0.25rem 0.75rem;                 
+  background: rgba(249, 115, 22, 0.30);     
+  border: 1px solid rgba(249, 115, 22, 0.50);  
+  border-radius: 0.375rem;                 
+  color: #fed7aa;                           
+  cursor: pointer;
+
+  
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  height: 34px;                             
+  box-sizing: border-box;
+   margin: 0 !important;    
+}
+
+#retryServerCheck:hover {
+   background: rgba(249, 115, 22, 0.50);  
+}
+
+#activateFlaskLink {
+  font-size: 0.875rem;                   
+  padding: 0.15rem 0.75rem;              
+  background: rgba(59, 130, 246, 0.30);  
+  border: 1px solid rgba(59, 130, 246, 0.50);  
+  border-radius: 0.375rem;               
+  color: #bfdbfe !important;             
+  text-decoration: none;
+  font-weight: 500;
+  cursor: pointer;
+
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+
+  height: 34px;                          
+  box-sizing: border-box;
+  margin: 0 !important;
+}
+
+#activateFlaskLink:hover {
+  background: rgba(59, 130, 246, 0.50);  
+}
+
   </style>
 </head>
 <body>
   <div class="content contentpadding">
 
     <!-- Flask status banner -->
-<div id="serverStatusBanner" style="
-  display:none;
-  background:#6b3e1e;
-  color:#ffd8b0;
-  padding:12px 16px;
-  border-radius:8px;
-  margin-bottom:14px;
-  font-size:16px;
-">
-  ⚠️ Flask Server is not running.
-  <button id="retryServerCheck" style="
-    float:right;
-    padding:6px 12px;
-    border-radius:6px;
-    border:1px solid rgba(255,255,255,0.25);
-    background:transparent;
-    color:#ffd8b0;
-    cursor:pointer;
-  ">Retry Check</button>
-  <div style="clear:both"></div>
+<div id="serverStatusBanner">
+  <div id="serverStatusLeft">
+    <span id="serverStatusIcon">⚠️</span>
+    <span id="serverStatusText">Flask Server is not running</span>
+  </div>
+
+  <div id="serverStatusActions">
+    <button id="retryServerCheck">Retry Check</button>
+    <a id="activateFlaskLink"
+       href="http://localhost:8887/data-pipeline/flask/"
+       target="_blank"
+       rel="noreferrer">
+      Activate Flask Server
+    </a>
+  </div>
 </div>
+
+
 
 
 <div id="tokenPanel" style="
@@ -311,25 +408,77 @@ models: xgboost</textarea>
       const stepsContainer = document.getElementById('stepsContainer');
       let availableSteps = [];
 
-// Flask health banner check
+// ---------- Flask status banner (3 states) ----------
 const banner = document.getElementById("serverStatusBanner");
 const retryBtn = document.getElementById("retryServerCheck");
+const statusText = document.getElementById("serverStatusText");
+const statusIcon = document.getElementById("serverStatusIcon");
 
-
+// If your Flask is actually on a different port, change it here.
+// (Your current file hardcodes 8100.) :contentReference[oaicite:1]{index=1}
 const FLASK_BASE = "http://127.0.0.1:8100";
 const HEALTH_URL = FLASK_BASE + "/health";
 
+function setBannerState(state, message) {
+  banner.style.display = "flex";
+  statusText.textContent = message;
+
+  if (state === "checking") {
+    banner.style.background = "#2e2e2e";
+    banner.style.color = "#e5e7eb";
+    statusIcon.textContent = "⏳";
+    retryBtn.style.display = "inline-block";
+    activateFlaskLink.style.display = "none";
+  }
+
+  if (state === "up") {
+    banner.style.background = "rgba(34, 197, 94, 0.08)";
+    banner.style.color = "#065f46";
+    statusIcon.textContent = "✅";
+    retryBtn.style.display = "none";
+    activateFlaskLink.style.display = "none";
+  }
+
+  if (state === "down") {
+    banner.style.background = "#3b261d";
+    banner.style.color = "#ffcc9c";
+    statusIcon.textContent = "⚠️";
+    retryBtn.style.display = "inline-block";
+    activateFlaskLink.setAttribute("id", "activateFlaskLink");
+  }
+}
+
+
+function fetchWithTimeout(url, ms = 2000) {
+  const controller = new AbortController();
+  const t = setTimeout(() => controller.abort(), ms);
+  return fetch(url, { cache: "no-store", signal: controller.signal })
+    .finally(() => clearTimeout(t));
+}
+
 async function checkFlask() {
+   
+
   try {
-    const res = await fetch(HEALTH_URL, { cache: "no-store" });
-    banner.style.display = res.ok ? "none" : "block";
+    const res = await fetchWithTimeout(HEALTH_URL, 2000);
+
+    if (res.ok) {
+      setBannerState("up", `Connected to Flask at ${FLASK_BASE}`);
+    } else {
+      setBannerState("down", `Flask responded but is not healthy (HTTP ${res.status}) at ${FLASK_BASE}`);
+    }
   } catch (e) {
-    banner.style.display = "block";
+    // Covers: server not running, CORS blocked, timeout, etc.
+    setBannerState("down", `Flask Server is not running at ${FLASK_BASE}`);
   }
 }
 
 retryBtn.addEventListener("click", checkFlask);
 checkFlask();
+
+
+
+
 
 
       function getExpandedHash() {
