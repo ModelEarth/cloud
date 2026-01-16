@@ -414,9 +414,9 @@ const retryBtn = document.getElementById("retryServerCheck");
 const statusText = document.getElementById("serverStatusText");
 const statusIcon = document.getElementById("serverStatusIcon");
 
-// If your Flask is actually on a different port, change it here.
-// (Your current file hardcodes 8100.) :contentReference[oaicite:1]{index=1}
+ 
 const FLASK_BASE = "http://127.0.0.1:8100";
+const FLASK_PORT = new URL(FLASK_BASE).port;
 const HEALTH_URL = FLASK_BASE + "/health";
 
 function setBannerState(state, message) {
@@ -463,13 +463,13 @@ async function checkFlask() {
     const res = await fetchWithTimeout(HEALTH_URL, 2000);
 
     if (res.ok) {
-      setBannerState("up", `Connected to Flask at ${FLASK_BASE}`);
+      setBannerState("up", `Connected to Flask on port ${FLASK_PORT}`);
     } else {
-      setBannerState("down", `Flask responded but is not healthy (HTTP ${res.status}) at ${FLASK_BASE}`);
+      setBannerState("down", `Flask responded but is not healthy (HTTP ${res.status}) on port ${FLASK_PORT}`);
     }
   } catch (e) {
     // Covers: server not running, CORS blocked, timeout, etc.
-    setBannerState("down", `Flask Server is not running at ${FLASK_BASE}`);
+    setBannerState("down", `Flask Server is not running on port ${FLASK_PORT}`);
   }
 }
 
