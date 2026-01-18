@@ -7,7 +7,7 @@
 
 ## Dev Folders
 
-For new development testing, create a folder at [cloud/team/2025/[handle]](https://github.com/modelearth/cloud/)
+For new development testing, create a folder at [cloud/team/2026/[handle]](https://github.com/modelearth/cloud/)
 
 1. Fork and clone our [cloud repo](https://github.com/modelearth/cloud) and [localsite repo](https://github.com/modelearth/localsite). 
 
