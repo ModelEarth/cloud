@@ -1,5 +1,7 @@
 # CLAUDE.md
 
+**Note:** The AI CLI guidance for cloud operations has been moved to [cloud/AGENTS.md](../AGENTS.md). This file is kept for reference and historical context.
+
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 ## Project Overview
