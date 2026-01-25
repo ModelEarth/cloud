@@ -223,5 +223,5 @@ tail -f cloud/run/app.log
 ## Related Documentation
 
 - **Cloud Run README**: [cloud/run/README.md](run/README.md)
-- **Main Webroot Guide**: [team/CLAUDE.md](../team/CLAUDE.md)
+- **Main Webroot Guide**: [team/AGENTS.md](../team/AGENTS.md)
 - **Data Pipeline Guide**: [data-pipeline/AGENTS.md](../data-pipeline/AGENTS.md)
