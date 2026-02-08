@@ -5,54 +5,9 @@
   <link rel="shortcut icon" href="data:image/x-icon;," type="image/x-icon">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Run Models</title>
-  <script>
-    // Preserve hash before localsite.js mutates it
-    window._rawHashAtStart = window.location.hash;
-  </script>
-  <script>
-    const observer = new MutationObserver(() => {
-      console.log("💥 Mutation detected. Hash is now:", window.location.hash);
-    });
-
-    observer.observe(document.documentElement, { childList: true, subtree: true });
-
-    window.addEventListener("hashchange", () => {
-      console.log("🔁 hashchange:", window.location.hash);
-    });
-  </script>
-  <script>
-    let UI_ACCESS_TOKEN = null;
-
-    const originalFetch = window.fetch;
-    window.fetch = async function (url, options = {}) {
-      // Only add authentication headers for local API calls
-      const isLocalApiCall = typeof url === 'string' && (
-        url.startsWith('/') ||  // relative URLs
-        url.startsWith(window.location.origin) ||  // same origin
-        url.startsWith('http://localhost') ||  // localhost
-        url.startsWith('http://127.0.0.1')  // 127.0.0.1
-      );
-
-      if (isLocalApiCall) {
-        options.headers = options.headers || {};
-        options.headers['X-Access-Token'] = localStorage.getItem("UI_ACCESS_TOKEN");
-      }
-
-      const response = await originalFetch(url, options);
-
-      
-      if (isLocalApiCall && (response.status === 401 || response.status === 403)) {
-        alert("❌ Invalid or expired access token. Please re-enter.");
-        localStorage.removeItem("UI_ACCESS_TOKEN");
-        location.reload();
-        return Promise.reject(new Error("Unauthorized"));
-      }
-
-      return response;
-    };
-  </script>
   <!-- provides getHash() -->
   <link type="text/css" rel="stylesheet" href="https://model.earth/localsite/css/base.css" id="/localsite/css/base.css">
+  <link type="text/css" rel="stylesheet" href="/cloud/run/css/param.css">
   <script type="text/javascript" src="https://model.earth/localsite/js/localsite.js?showheader=true&showsearch=true"></script>
   <script src="https://cdn.jsdelivr.net/npm/js-yaml@4/dist/js-yaml.min.js"></script>
   <script src="js/param-input.js"></script>
@@ -136,7 +91,6 @@
     display: none;
     margin-top: 20px;
     padding: 10px;
-    background: #f1f1f1;
     border-radius: 5px;
     }
     #stepsContainer label {
@@ -266,7 +220,7 @@
 
   </style>
 </head>
-<body>
+<body data-param-input="cloud-run">
   <div class="content contentpadding">
 
     <!-- Flask status banner -->
@@ -295,7 +249,6 @@
   padding:12px 14px;
   border:1px solid rgba(0,0,0,0.12);
   border-radius:10px;
-  background:#f7f7f7;
   max-width:720px;
 ">
   <div style="font-size:16px; font-weight:600; margin-bottom:8px;">
@@ -356,6 +309,8 @@ models: xgboost</textarea>
 
 <select id="parambase"></select>
 
+<div id="pathControls"></div>
+
 <div id="paramText" class="codetext" rows="10" contenteditable><pre>
 <b>folder:</b> naics6-bees-counties
 
@@ -387,336 +342,6 @@ models: xgboost</textarea>
     <div id="pageparams" style="display: none;"></div>
   </div>
 
-  <script>
-    document.addEventListener('DOMContentLoaded', () => {
-      
-      if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-        UI_ACCESS_TOKEN = 'local-dev-token';
-        localStorage.setItem("UI_ACCESS_TOKEN", UI_ACCESS_TOKEN);
-      } else {
-  // No popup: use token input panel
-  const tokenInput = document.getElementById("tokenInput");
-  const saveBtn = document.getElementById("saveTokenBtn");
-  const savedMsg = document.getElementById("tokenSavedMsg");
-
-  // Load saved token into input
-  tokenInput.value = localStorage.getItem("UI_ACCESS_TOKEN") || "";
-  UI_ACCESS_TOKEN = tokenInput.value.trim() || null;
-
-  saveBtn.addEventListener("click", () => {
-    const t = tokenInput.value.trim();
-    if (!t) {
-      alert("Please enter a token first.");
-      return;
-    }
-    localStorage.setItem("UI_ACCESS_TOKEN", t);
-    UI_ACCESS_TOKEN = t;
-    savedMsg.style.display = "inline";
-    setTimeout(() => savedMsg.style.display = "none", 1500);
-  });
-}
-
-      //const yamlInput = document.getElementById('yamlInput');
-
-      // Use pre instead
-      const yamlInput = document.querySelector('#paramText pre');
-
-      const paramTextDiv = document.getElementById('paramText');
-      const runButton = document.getElementById('runButton');
-      const status = document.getElementById('status');
-      const stepsToggle = document.getElementById('enableSteps');
-      const stepsContainer = document.getElementById('stepsContainer');
-      let availableSteps = [];
-
-// ---------- Flask status banner (3 states) ----------
-const banner = document.getElementById("serverStatusBanner");
-const retryBtn = document.getElementById("retryServerCheck");
-const statusText = document.getElementById("serverStatusText");
-const statusIcon = document.getElementById("serverStatusIcon");
-
- 
-const FLASK_BASE = "http://127.0.0.1:8100";
-const FLASK_PORT = new URL(FLASK_BASE).port;
-const HEALTH_URL = FLASK_BASE + "/health";
-
-function setBannerState(state, message) {
-  banner.style.display = "flex";
-  statusText.textContent = message;
-
-  if (state === "checking") {
-    banner.style.background = "#2e2e2e";
-    banner.style.color = "#e5e7eb";
-    statusIcon.textContent = "⏳";
-    retryBtn.style.display = "inline-block";
-    activateFlaskLink.style.display = "none";
-  }
-
-  if (state === "up") {
-    banner.style.background = "rgba(34, 197, 94, 0.08)";
-    banner.style.color = "#065f46";
-    statusIcon.textContent = "✅";
-    retryBtn.style.display = "none";
-    activateFlaskLink.style.display = "none";
-  }
-
-  if (state === "down") {
-    banner.style.background = "#3b261d";
-    banner.style.color = "#ffcc9c";
-    statusIcon.textContent = "⚠️";
-    retryBtn.style.display = "inline-block";
-    activateFlaskLink.setAttribute("id", "activateFlaskLink");
-  }
-}
-
-
-function fetchWithTimeout(url, ms = 2000) {
-  const controller = new AbortController();
-  const t = setTimeout(() => controller.abort(), ms);
-  return fetch(url, { cache: "no-store", signal: controller.signal })
-    .finally(() => clearTimeout(t));
-}
-
-async function checkFlask() {
-   
-
-  try {
-    const res = await fetchWithTimeout(HEALTH_URL, 2000);
-
-    if (res.ok) {
-      setBannerState("up", `Connected to Flask on port ${FLASK_PORT}`);
-    } else {
-      setBannerState("down", `Flask responded but is not healthy (HTTP ${res.status}) on port ${FLASK_PORT}`);
-    }
-  } catch (e) {
-    // Covers: server not running, CORS blocked, timeout, etc.
-    setBannerState("down", `Flask Server is not running on port ${FLASK_PORT}`);
-  }
-}
-
-retryBtn.addEventListener("click", checkFlask);
-checkFlask();
-
-
-
-
-
-
-      function getExpandedHash() {
-        const hash = (window._rawHashAtStart || window.location.hash).substring(1);
-        console.log("Using preserved hash:", window._rawHashAtStart);
-        const params = new URLSearchParams(hash);
-        const flat = {};
-        for (const [key, value] of params.entries()) {
-          flat[key] = value;
-        }
-        const expanded = {};
-        for (const key in flat) {
-          const parts = key.split('.');
-          let current = expanded;
-          parts.forEach((part, i) => {
-            if (i === parts.length - 1) {
-              current[part] = flat[key];
-            } else {
-              current[part] = current[part] || {};
-              current = current[part];
-            }
-          });
-        }
-        return { expanded, flat };
-      }
-
-      const defaultYamlObj = {
-        folder: "naics6-bees-counties",
-        features: {
-          data: "industries",
-          common: "Fips",
-          path: "https://raw.githubusercontent.com/ModelEarth/community-timelines/main/training/naics6/US/counties/2020/US-ME-training-naics6-counties-2020.csv"
-        },
-        targets: {
-          data: "bees",
-          path: "https://raw.githubusercontent.com/ModelEarth/bee-data/main/targets/bees-targets-top-20-percent.csv"
-        },
-        models: "xgboost"
-      };
-
-      function deepMerge(target, source) {
-        for (const key in source) {
-          if (typeof source[key] === 'object' && source[key] !== null && !Array.isArray(source[key])) {
-            target[key] = target[key] || {};
-            deepMerge(target[key], source[key]);
-          } else {
-            target[key] = source[key];
-          }
-        }
-        return target;
-      }
-      console.log("HASH IMMEDIATELY:", window.location.hash);
-      let gonext = null;
-      function parseAndRenderFromHash() {
-      const { expanded: hashParams, flat: rawHash } = getExpandedHash();
-      const gonext = rawHash.gonext;
-
-      const hasHashOverrides = Object.keys(rawHash).some(key => key !== 'gonext');
-      const mergedYamlObj = hasHashOverrides
-        ? deepMerge(JSON.parse(JSON.stringify(defaultYamlObj)), hashParams)
-        : defaultYamlObj;
-
-      const yamlString = jsyaml.dump(mergedYamlObj, { lineWidth: -1, flowLevel: -1 });
-      yamlInput.value = yamlString;
-      if (paramTextDiv) paramTextDiv.innerText = yamlString;
-    }
-
-    function waitUntilHashSettlesAndParse() {
-      let attempt = 0;
-      const maxAttempts = 10;
-
-      function tryParse() {
-        attempt++;
-        const hash = window.location.hash;
-        const broken = hash.includes("[object Object]");
-
-        console.log(`🕒 attempt ${attempt}, hash:`, hash);
-
-        if (!broken || attempt >= maxAttempts) {
-          parseAndRenderFromHash();
-        } else {
-          setTimeout(tryParse, 50); // wait and try again
-        }
-      }
-
-      tryParse();
-    }
-
-    // Run once after initial load delay
-    setTimeout(waitUntilHashSettlesAndParse, 150);
-
-    // Re-run on hash changes (e.g., user interaction)
-    window.addEventListener("hashchange", waitUntilHashSettlesAndParse);
-
-    // Initialize parameter base selector dropdown
-    loadBaseParamsSelect();
-
-
-
-      // Handle steps toggle
-      stepsToggle.addEventListener('change', () => {
-        if (stepsToggle.checked) {
-          document.getElementById('stepsLoading').style.display = 'block';
-          fetch('/list-notebook-steps')
-            .then(res => res.json())
-            .then(data => {
-              availableSteps = data.steps || [];
-              stepsContainer.innerHTML = '';
-              availableSteps.forEach(step => {
-                const label = document.createElement('label');
-                label.innerHTML = `<input type="checkbox" value="${step}"> ${step}`;
-                stepsContainer.appendChild(label);
-              });
-              stepsContainer.style.display = 'block';
-            })
-            .catch(() => {
-              stepsContainer.innerHTML = '<p style="color:red;">Failed to load steps</p>';
-              stepsContainer.style.display = 'block';
-            })
-            .finally(() => {
-              document.getElementById('stepsLoading').style.display = 'none';
-            });
-        } else {
-          stepsContainer.style.display = 'none';
-          stepsContainer.innerHTML = '';
-          document.getElementById('stepsLoading').style.display = 'none';
-        }
-      });
-
-
-
-      runButton.addEventListener('click', () => {
-        status.style.display = 'none';
-        runButton.disabled = true;
-        runButton.textContent = 'Processing...';
-
-        
-        let finalParams = {};
-        try {
-          // Get YAML content from pre element (textContent, not value)
-          const yamlContent = yamlInput.textContent || yamlInput.innerText || '';
-          finalParams = jsyaml.load(yamlContent.trim());
-        } catch (e) {
-          status.className = 'error';
-          status.style.display = 'block';
-          status.textContent = 'Invalid YAML: ' + e.message;
-          runButton.disabled = false;
-          runButton.textContent = 'Run Notebook';
-          return;
-        }
-        
-
-        if (stepsToggle.checked) {
-          const selectedSteps = [...stepsContainer.querySelectorAll('input[type="checkbox"]:checked')].map(cb => cb.value);
-          if (selectedSteps.length > 0) finalParams.steps = selectedSteps;
-        }
-
-        displayParams(finalParams);
-
-        fetch('/run-notebook', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ parameters: finalParams })
-        })
-        .then(response => response.json())
-        .then(data => {
-          runButton.disabled = false;
-          runButton.textContent = 'Run Notebook';
-          status.style.display = 'block';
-
-          if (data.status === 'success') {
-            status.className = 'success';
-
-            fetch('/get-config')
-              .then(res => res.json())
-              .then(config => {
-                console.log("🪵 /get-config response:", config);
-                console.log("🔍 config.status:", config.status);
-                console.log("🔍 config.config.github:", config.config.github);
-                console.log("🔍 config.config.github?.target_repo:", config.config.github?.target_repo);
-                if (config.status === 'success' && config.config.github?.target_repo) {
-                  status.innerHTML = 'Notebook executed successfully!<br><a href="' + config.config.github.target_repo + '" target="_blank" style="color: #155724; font-weight: bold;">View results in GitHub →</a>';
-                } else {
-                  status.textContent = 'Notebook executed successfully!';
-                }
-
-                if (gonext) {
-                  const redirectMsg = document.createElement('div');
-                  redirectMsg.style.marginTop = '10px';
-                  redirectMsg.style.color = '#155724';
-                  redirectMsg.innerHTML = 'Redirecting...';
-                  status.appendChild(redirectMsg);
-                  setTimeout(() => { window.location.href = gonext; }, 2000);
-                }
-              })
-              .catch(() => {
-                status.textContent = 'Notebook executed successfully!';
-              });
-          } else {
-            status.className = 'error';
-            status.textContent = 'Error: ' + data.message;
-          }
-        })
-        .catch(error => {
-          runButton.disabled = false;
-          runButton.textContent = 'Run Notebook';
-          status.className = 'error';
-          status.style.display = 'block';
-          status.textContent = 'Request failed: ' + error.message;
-        });
-      });
-    });
-
-    window.logout = function () {
-      localStorage.removeItem("UI_ACCESS_TOKEN");
-      location.reload();
-    };
-  </script>
 
 </body>
 </html>

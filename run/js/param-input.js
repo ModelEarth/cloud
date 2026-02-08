@@ -1,8 +1,20 @@
+function rsDebugAlert(message) {
+  return;
+}
+
+// Global variables for parambase handling (declared early to avoid TDZ)
+let cachedParambaseContent = {};
+let currentParambase = null;
+
+function safeGetHash() {
+  return typeof getHash === 'function' ? getHash() : {};
+}
+
 document.addEventListener('hashChangeEvent', function (event) {
     console.log("param-input.js detects URL hashChangeEvent");
     
     // Reload YAML content for the current parambase
-    const hash = getHash();
+    const hash = safeGetHash();
     if (hash.parambase) {
         const select = document.getElementById('parambase');
         if (select) {
@@ -16,6 +28,145 @@ document.addEventListener('hashChangeEvent', function (event) {
         loadParamTextFromCurrentState();
     }
 }, false);
+
+function renderPathControls() {
+  const host = document.getElementById('pathControls');
+  if (!host) {
+    return;
+  }
+
+  let shouldRefreshSelections = false;
+  if (!host.children.length) {
+    host.innerHTML = `
+      <div id="rsAddBackdrop" class="rs-backdrop"></div>
+
+      <div id="rsAddPopup" class="rs-popup">
+        <div class="rs-popup-header">
+          <div class="rs-popup-title">Add dataset</div>
+          <button id="rsAddClose" type="button" class="rs-popup-close">×</button>
+        </div>
+
+        <div class="rs-role-options">
+          <label>
+            <input type="radio" name="rs_role" value="features" checked> Features
+          </label>
+          <label>
+            <input type="radio" name="rs_role" value="target"> Targets
+          </label>
+        </div>
+
+        <div class="rs-popup-subtitle">Select from:</div>
+
+        <div class="rs-option-group">
+          <button id="rsAddTimelines" type="button" class="rs-option-button">
+            Google Data Commons Timelines
+          </button>
+
+          <button id="rsAddNaics" type="button" class="rs-option-button">
+            US Industry NAICS Data
+          </button>
+        </div>
+      </div>
+
+      <div id="rsPickers" class="rs-pickers">
+        <div class="rs-picker">
+          <div class="rs-picker-header">
+            <div class="rs-picker-title">Features Data</div>
+          </div>
+          <div id="rsFeaturesList" class="rs-drop rs-drop-list"></div>
+          <div id="rsFeaturesEmpty" class="rs-drop-empty">
+            No features selected yet.
+          </div>
+        </div>
+
+        <div class="rs-picker">
+          <div class="rs-picker-header">
+            <div class="rs-picker-title">Target Data</div>
+          </div>
+          <div id="rsTargetList" class="rs-drop rs-drop-list"></div>
+          <div id="rsTargetEmpty" class="rs-drop-empty">
+            No target selected yet.
+          </div>
+        </div>
+      </div>
+
+      <div id="rsJoinStatus" class="rs-join-status"></div>
+    `;
+    shouldRefreshSelections = true;
+  }
+
+  function rsOpenAddPopup() {
+    const popup = document.getElementById('rsAddPopup');
+    const backdrop = document.getElementById('rsAddBackdrop');
+    if (popup) popup.style.display = 'block';
+    if (backdrop) backdrop.style.display = 'block';
+  }
+
+  function rsCloseAddPopup() {
+    const popup = document.getElementById('rsAddPopup');
+    const backdrop = document.getElementById('rsAddBackdrop');
+    if (popup) popup.style.display = 'none';
+    if (backdrop) backdrop.style.display = 'none';
+  }
+
+  function rsGetSelectedRole() {
+    const chosen = document.querySelector('input[name="rs_role"]:checked');
+    return chosen ? chosen.value : 'features';
+  }
+
+  function rsOpenAddPopupWithRole(role) {
+    const desired = role === 'target' ? 'target' : 'features';
+    const input = document.querySelector(`input[name="rs_role"][value="${desired}"]`);
+    if (input) input.checked = true;
+    rsOpenAddPopup();
+  }
+
+  function rsNavigateWithHash(destPath, source) {
+    const role = rsGetSelectedRole();
+    if (role === 'target' && window.rsHasTarget && window.rsHasTarget()) {
+      alert('Only 1 target is allowed. Remove the current target first.');
+      return;
+    }
+
+    const h = (window.location.hash || '').replace(/^#/, '');
+    const p = new URLSearchParams(h);
+
+    p.set('rs_role', role);
+    p.set('rs_source', source);
+
+    rsCloseAddPopup();
+    window.location.href = destPath + '#' + p.toString();
+  }
+
+  window.rsOpenAddPopup = rsOpenAddPopup;
+  window.rsOpenAddPopupWithRole = rsOpenAddPopupWithRole;
+  window.rsCloseAddPopup = rsCloseAddPopup;
+  window.rsNavigateWithHash = rsNavigateWithHash;
+
+  const closeBtn = document.getElementById('rsAddClose');
+  const backdrop = document.getElementById('rsAddBackdrop');
+  const btnTimelines = document.getElementById('rsAddTimelines');
+  const btnNaics = document.getElementById('rsAddNaics');
+
+  if (closeBtn) closeBtn.addEventListener('click', rsCloseAddPopup);
+  if (backdrop) backdrop.addEventListener('click', rsCloseAddPopup);
+
+  if (btnTimelines) btnTimelines.addEventListener('click', function() {
+    rsNavigateWithHash('/localsite/timeline/', 'timelines');
+  });
+
+  if (btnNaics) btnNaics.addEventListener('click', function() {
+    rsNavigateWithHash('/localsite/info', 'naics');
+  });
+
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') rsCloseAddPopup();
+  });
+
+  if (shouldRefreshSelections && typeof window.rsRefreshFromYaml === 'function') {
+    window.rsRefreshFromYaml();
+  }
+}
 
 // Function to reload paramText content without affecting the dropdown
 function loadParamTextFromCurrentState() {
@@ -161,7 +312,7 @@ function parseHashParams() {
   }
 
 
-  function displayParams(obj) {
+function displayParams(obj) {
     const paramDiv = document.getElementById('pageparams');
     if (!obj || Object.keys(obj).length === 0) {
       paramDiv.style.display = 'none';
@@ -171,10 +322,17 @@ function parseHashParams() {
     paramDiv.textContent = 'Parameters:\n' + JSON.stringify(obj, null, 2);
   }
 
-document.addEventListener('DOMContentLoaded', function() {
+function bootParamInput() {
+  if (typeof waitForElm === 'function') {
+    waitForElm('#pathControls').then(renderPathControls);
+  } else {
+    renderPathControls();
+  }
+
+  initRunPage();
   // Only load paramText if we're not expecting parambase to be loaded later
   // The parambase system will handle this when it's ready
-  const hash = getHash();
+  const hash = safeGetHash();
   if (!hash.parambase) {
     loadParamText();
   }
@@ -299,7 +457,13 @@ document.addEventListener('DOMContentLoaded', function() {
     // Update reset button visibility after hash changes
     updateResetButtonVisibility();
   }
-});
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', bootParamInput);
+} else {
+  bootParamInput();
+}
 
 
 
@@ -308,6 +472,664 @@ function parseYamlContent() {
     const paramTextElement = document.getElementById('paramText');
     const yamlContent = paramTextElement.textContent || paramTextElement.innerText;
     return yamlContent;
+}
+
+function rsAttachCardMenu(options) {
+  const {
+    card,
+    roleLabel,
+    onAdd,
+    onRemove,
+    onExpandToggle
+  } = options;
+
+  if (!card || !roleLabel) return;
+
+  const ensureMenu = () => {
+    if (typeof addPanelMenu !== 'function') return;
+    if (document.getElementById(`${card.id}MenuToggleHolder`)) return;
+
+    const menuItems = [
+      { label: `Expand ${roleLabel}`, action: 'expand', icon: 'open_in_full' },
+      { label: `Remove ${roleLabel}`, action: 'remove', icon: 'visibility_off' },
+      { divider: true },
+      { label: `Add ${roleLabel}`, action: 'add', icon: 'add_circle' }
+    ];
+
+    addPanelMenu({
+      panelType: roleLabel,
+      targetPanelId: card.id,
+      containerSelector: `#${card.id} .rsCardMenuHolder`,
+      inline: true,
+      menuItems,
+      onAction: (action) => {
+        if (action === 'add' && typeof onAdd === 'function') {
+          onAdd();
+          return true;
+        }
+        if (action === 'remove' && typeof onRemove === 'function') {
+          onRemove();
+          return true;
+        }
+        if ((action === 'expand' || action === 'collapse') && typeof onExpandToggle === 'function') {
+          onExpandToggle(action === 'expand');
+          return true;
+        }
+        return false;
+      }
+    }).render();
+  };
+
+  if (typeof addPanelMenu === 'function') {
+    ensureMenu();
+  } else if (typeof waitForVariable === 'function') {
+    waitForVariable('addPanelMenu', ensureMenu);
+  } else {
+    const timer = setInterval(() => {
+      if (typeof addPanelMenu === 'function') {
+        clearInterval(timer);
+        ensureMenu();
+      }
+    }, 200);
+  }
+}
+
+window.rsAttachCardMenu = rsAttachCardMenu;
+
+function rsCreateRowCard(options) {
+  const {
+    item,
+    role,
+    roleLabel,
+    getPathInfo,
+    isProbablyDcid,
+    onAdd,
+    onRemove,
+    onPreviewInline
+  } = options;
+
+  const card = document.createElement('div');
+  card.className = 'rsRowCard';
+  card.id = options.cardId || `rsCard_${role}_${Math.random().toString(16).slice(2)}`;
+
+  const header = document.createElement('div');
+  header.className = 'rsCardHeader';
+
+  const title = document.createElement('div');
+  title.className = 'rsCardTitle';
+  title.textContent = (item && (item.label || item.dcid)) || '';
+
+  const menuWrap = document.createElement('div');
+  menuWrap.className = 'rsCardMenuHolder';
+
+  header.appendChild(title);
+  header.appendChild(menuWrap);
+  card.appendChild(header);
+
+  let details = null;
+  let previewWrap = null;
+
+  if (item && typeof getPathInfo === 'function' && typeof isProbablyDcid === 'function') {
+    details = document.createElement('div');
+    details.className = 'rsDetails rsDetailsInline';
+    details.style.display = 'none';
+
+    const value = item.dcid || '';
+    const isDcid = (item.kind === 'dcid') || isProbablyDcid(value);
+    let link = item.href || '';
+    if (!isDcid && link && link.includes('datacommons.org/browser')) {
+      link = '';
+    }
+
+    const fromYaml = getPathInfo(role);
+    const fullPath = item.fullPath || fromYaml.fullPath || '';
+    const hasPH = !!item.hasPlaceholders || fromYaml.hasPH;
+    const placeholderPath = item.placeholderPath || fromYaml.placeholderPath || '';
+    const previewPath = item.previewPath || fromYaml.previewPath || '';
+    const pv = item.previewWith || fromYaml.pv || null;
+
+    const dcidBlock = (value || link) ? `
+      ${value ? `
+        <div class="k">${isProbablyDcid(value) ? 'DCID' : 'DATA'}</div>
+        <div class="v">${value}</div>
+      ` : ''}
+      ${link ? `
+        <div class="k">LINK</div>
+        <div class="v">
+          <a href="${link}" target="_blank" rel="noopener noreferrer">${link}</a>
+        </div>
+      ` : ''}
+    ` : '';
+
+    const csvToPreview = previewPath || fullPath;
+    const canPreview = !!csvToPreview && /\.csv(\?|#|$)/i.test(csvToPreview);
+
+    const pathBlock = fullPath ? `
+      <div class="k">PATH</div>
+      <div class="v">
+        ${hasPH ? `
+          <div>${placeholderPath}</div>
+          ${pv ? `
+            <div style="margin-top:10px;">
+              <div class="k" style="margin-top:0;">Preview with:</div>
+              <div class="v">year: ${pv.year}</div>
+              <div class="v">state: ${(!item.previewWith?.state || String(item.previewWith.state).toLowerCase() === 'all') ? 'all (using NY)' : pv.state}</div>
+              <div class="v">naics: ${pv.naics}</div>
+            </div>
+          ` : ''}
+          ${canPreview ? `
+            <div class="k">Preview link</div>
+            <div class="v">
+              <a href="${csvToPreview}" class="rsPreviewLink" data-preview="${csvToPreview}">
+                Open preview table
+              </a>
+            </div>
+          ` : ''}
+        ` : `
+          <a href="${fullPath}" target="_blank" rel="noopener noreferrer">${fullPath}</a>
+          ${canPreview ? `
+            <div class="k" style="margin-top:10px;">Preview link</div>
+            <div class="v">
+              <a href="${csvToPreview}" class="rsPreviewLink" data-preview="${csvToPreview}">
+                Open preview table
+              </a>
+            </div>
+          ` : ''}
+        `}
+      </div>
+    ` : '';
+
+    details.innerHTML = `
+      ${dcidBlock}
+      ${dcidBlock && pathBlock ? `<div style="margin-top:10px;"></div>` : ''}
+      ${pathBlock}
+    `;
+
+    previewWrap = document.createElement('div');
+    previewWrap.className = 'rsPreviewInline';
+    previewWrap.style.display = 'none';
+
+    card.appendChild(details);
+    card.appendChild(previewWrap);
+
+    const previewA = details.querySelector('.rsPreviewLink');
+    if (previewA && typeof onPreviewInline === 'function') {
+      previewA.addEventListener('click', (ev) => {
+        ev.preventDefault();
+        ev.stopPropagation();
+        const url = previewA.getAttribute('data-preview');
+        const tableId = `rsPreviewTable_${card.id}`;
+        previewWrap.style.display = 'block';
+        previewWrap.innerHTML = `
+          <div class="rsPreviewMeta"><a href="${url}" target="_blank" rel="noopener noreferrer">Data Source</a></div>
+          <div id="${tableId}"></div>
+        `;
+        onPreviewInline(url, tableId);
+      });
+    }
+  }
+
+  const attachMenu = () => {
+    rsAttachCardMenu({
+      card,
+      roleLabel,
+      onAdd,
+      onRemove,
+      onExpandToggle: (expanded) => {
+        if (details) details.style.display = expanded ? 'block' : 'none';
+        if (!expanded && previewWrap) {
+          previewWrap.style.display = 'none';
+          previewWrap.innerHTML = '';
+        }
+        if (card.dataset) {
+          card.dataset.menuExpanded = expanded ? 'true' : 'false';
+        }
+        if (typeof updateMenuLabels === 'function') {
+          updateMenuLabels(`${card.id}Menu`, card.id, roleLabel);
+        }
+        if (typeof setPanelToggleIcon === 'function') {
+          setPanelToggleIcon(`${card.id}MenuToggleHolder`, expanded ? 'arrow_drop_down_circle' : 'arrow_right');
+        }
+      }
+    });
+  };
+
+  card._rsAttachMenu = attachMenu;
+
+  card.addEventListener('click', (ev) => {
+    if (ev.target && ev.target.closest(`[id$=\"MenuToggleHolder\"], #${card.id}Menu`)) {
+      return;
+    }
+    const isExpanded = details && details.style.display === 'block';
+    const nextExpanded = !isExpanded;
+    if (details) details.style.display = nextExpanded ? 'block' : 'none';
+    if (!nextExpanded && previewWrap) {
+      previewWrap.style.display = 'none';
+      previewWrap.innerHTML = '';
+    }
+    if (card.dataset) {
+      card.dataset.menuExpanded = nextExpanded ? 'true' : 'false';
+    }
+    if (typeof updateMenuLabels === 'function') {
+      updateMenuLabels(`${card.id}Menu`, card.id, roleLabel);
+    }
+    if (typeof setPanelToggleIcon === 'function') {
+      setPanelToggleIcon(`${card.id}MenuToggleHolder`, nextExpanded ? 'arrow_drop_down_circle' : 'arrow_right');
+    }
+  });
+
+  return card;
+}
+
+window.rsCreateRowCard = rsCreateRowCard;
+
+function initRunPage() {
+  const mode = document.body ? document.body.dataset.paramInput : '';
+  if (mode !== 'cloud-run') {
+    return;
+  }
+  const runButton = document.getElementById('runButton');
+  if (!runButton) {
+    rsDebugAlert('runButton not found');
+    return;
+  }
+
+  const paramTextDiv = document.getElementById('paramText');
+  const yamlInput = document.querySelector('#paramText pre');
+  const status = document.getElementById('status');
+  const stepsToggle = document.getElementById('enableSteps');
+  const stepsContainer = document.getElementById('stepsContainer');
+  const stepsLoading = document.getElementById('stepsLoading');
+  const tokenInput = document.getElementById('tokenInput');
+  const saveBtn = document.getElementById('saveTokenBtn');
+  const savedMsg = document.getElementById('tokenSavedMsg');
+  const logoutButton = document.getElementById('logoutButton');
+
+  if (!yamlInput || !paramTextDiv) return;
+
+  window.UI_ACCESS_TOKEN = null;
+
+  const originalFetch = window.fetch;
+  window.fetch = async function (url, options = {}) {
+    const isLocalApiCall = typeof url === 'string' && (
+      url.startsWith('/') ||
+      url.startsWith(window.location.origin) ||
+      url.startsWith('http://localhost') ||
+      url.startsWith('http://127.0.0.1')
+    );
+
+    if (isLocalApiCall) {
+      options.headers = options.headers || {};
+      options.headers['X-Access-Token'] = localStorage.getItem("UI_ACCESS_TOKEN");
+    }
+
+    const response = await originalFetch(url, options);
+
+    if (isLocalApiCall && (response.status === 401 || response.status === 403)) {
+      alert("❌ Invalid or expired access token. Please re-enter.");
+      localStorage.removeItem("UI_ACCESS_TOKEN");
+      location.reload();
+      return Promise.reject(new Error("Unauthorized"));
+    }
+
+    return response;
+  };
+
+  if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+    window.UI_ACCESS_TOKEN = 'local-dev-token';
+    localStorage.setItem("UI_ACCESS_TOKEN", window.UI_ACCESS_TOKEN);
+  } else if (tokenInput && saveBtn && savedMsg) {
+    tokenInput.value = localStorage.getItem("UI_ACCESS_TOKEN") || "";
+    window.UI_ACCESS_TOKEN = tokenInput.value.trim() || null;
+
+    saveBtn.addEventListener("click", () => {
+      const t = tokenInput.value.trim();
+      if (!t) {
+        alert("Please enter a token first.");
+        return;
+      }
+      localStorage.setItem("UI_ACCESS_TOKEN", t);
+      window.UI_ACCESS_TOKEN = t;
+      savedMsg.style.display = "inline";
+      setTimeout(() => savedMsg.style.display = "none", 1500);
+    });
+  }
+
+  if (logoutButton) {
+    window.logout = function () {
+      localStorage.removeItem("UI_ACCESS_TOKEN");
+      location.reload();
+    };
+  }
+
+  const banner = document.getElementById("serverStatusBanner");
+  const retryBtn = document.getElementById("retryServerCheck");
+  const statusText = document.getElementById("serverStatusText");
+  const statusIcon = document.getElementById("serverStatusIcon");
+  const activateFlaskLink = document.getElementById("activateFlaskLink");
+
+  const FLASK_BASE = "http://127.0.0.1:8100";
+  const FLASK_PORT = new URL(FLASK_BASE).port;
+  const HEALTH_URL = FLASK_BASE + "/health";
+
+  function setBannerState(state, message) {
+    if (!banner) return;
+    banner.style.display = "flex";
+    statusText.textContent = message;
+
+    if (state === "checking") {
+      banner.style.background = "#2e2e2e";
+      banner.style.color = "#e5e7eb";
+      statusIcon.textContent = "⏳";
+      retryBtn.style.display = "inline-block";
+      if (activateFlaskLink) activateFlaskLink.style.display = "none";
+    }
+
+    if (state === "up") {
+      banner.style.background = "rgba(34, 197, 94, 0.08)";
+      banner.style.color = "#065f46";
+      statusIcon.textContent = "✅";
+      retryBtn.style.display = "none";
+      if (activateFlaskLink) activateFlaskLink.style.display = "none";
+    }
+
+    if (state === "down") {
+      banner.style.background = "#3b261d";
+      banner.style.color = "#ffcc9c";
+      statusIcon.textContent = "⚠️";
+      retryBtn.style.display = "inline-block";
+      if (activateFlaskLink) activateFlaskLink.style.display = "inline-flex";
+    }
+  }
+
+  function fetchWithTimeout(url, ms = 2000) {
+    const controller = new AbortController();
+    const t = setTimeout(() => controller.abort(), ms);
+    return fetch(url, { cache: "no-store", signal: controller.signal })
+      .finally(() => clearTimeout(t));
+  }
+
+  async function checkFlask() {
+    try {
+      const res = await fetchWithTimeout(HEALTH_URL, 2000);
+      if (res.ok) {
+        setBannerState("up", `Connected to Flask on port ${FLASK_PORT}`);
+      } else {
+        setBannerState("down", `Flask responded but is not healthy (HTTP ${res.status}) on port ${FLASK_PORT}`);
+      }
+    } catch (e) {
+      setBannerState("down", `Flask Server is not running on port ${FLASK_PORT}`);
+    }
+  }
+
+  if (retryBtn) retryBtn.addEventListener("click", checkFlask);
+  checkFlask();
+
+  const defaultYamlObj = {
+    folder: "naics6-bees-counties",
+    features: {
+      data: "industries",
+      common: "Fips",
+      path: "https://raw.githubusercontent.com/ModelEarth/community-timelines/main/training/naics6/US/counties/2020/US-ME-training-naics6-counties-2020.csv"
+    },
+    targets: {
+      data: "bees",
+      path: "https://raw.githubusercontent.com/ModelEarth/bee-data/main/targets/bees-targets-top-20-percent.csv"
+    },
+    models: "xgboost"
+  };
+
+  function deepMerge(target, source) {
+    for (const key in source) {
+      if (typeof source[key] === 'object' && source[key] !== null && !Array.isArray(source[key])) {
+        target[key] = target[key] || {};
+        deepMerge(target[key], source[key]);
+      } else {
+        target[key] = source[key];
+      }
+    }
+    return target;
+  }
+
+  function expandHashObject(hash) {
+    const expanded = {};
+    Object.keys(hash || {}).forEach((key) => {
+      if (key === 'gonext') return;
+      const parts = key.split('.');
+      let current = expanded;
+      parts.forEach((part, i) => {
+        if (i === parts.length - 1) {
+          current[part] = hash[key];
+        } else {
+          current[part] = current[part] || {};
+          current = current[part];
+        }
+      });
+    });
+    return expanded;
+  }
+
+  function parseAndRenderFromHash() {
+    const hash = typeof getHash === 'function' ? getHash() : {};
+    const expanded = expandHashObject(hash);
+    const hasHashOverrides = Object.keys(hash).some(key => key !== 'gonext');
+    const mergedYamlObj = hasHashOverrides
+      ? deepMerge(JSON.parse(JSON.stringify(defaultYamlObj)), expanded)
+      : defaultYamlObj;
+
+    const yamlString = jsyaml.dump(mergedYamlObj, { lineWidth: -1, flowLevel: -1 });
+    yamlInput.textContent = yamlString;
+    paramTextDiv.innerText = yamlString;
+    renderSelectionsFromYaml();
+  }
+
+  parseAndRenderFromHash();
+  document.addEventListener('hashChangeEvent', parseAndRenderFromHash);
+  window.addEventListener("hashchange", parseAndRenderFromHash);
+
+  loadBaseParamsSelect();
+  if (typeof window.rsRefreshFromYaml !== 'function') {
+    window.rsRefreshFromYaml = renderSelectionsFromYaml;
+  }
+  renderSelectionsFromYaml();
+
+  const preTag = document.querySelector('#paramText pre');
+  if (preTag) {
+    const observer = new MutationObserver(() => {
+      renderSelectionsFromYaml();
+    });
+    observer.observe(preTag, { childList: true, subtree: true, characterData: true });
+  }
+
+  if (stepsToggle) {
+    stepsToggle.addEventListener('change', () => {
+      if (stepsToggle.checked) {
+        if (stepsLoading) stepsLoading.style.display = 'block';
+        fetch('/list-notebook-steps')
+          .then(res => res.json())
+          .then(data => {
+            const availableSteps = data.steps || [];
+            stepsContainer.innerHTML = '';
+            availableSteps.forEach(step => {
+              const label = document.createElement('label');
+              label.innerHTML = `<input type="checkbox" value="${step}"> ${step}`;
+              stepsContainer.appendChild(label);
+            });
+            stepsContainer.style.display = 'block';
+          })
+          .catch(() => {
+            stepsContainer.innerHTML = '<p style="color:red;">Failed to load steps</p>';
+            stepsContainer.style.display = 'block';
+          })
+          .finally(() => {
+            if (stepsLoading) stepsLoading.style.display = 'none';
+          });
+      } else {
+        stepsContainer.style.display = 'none';
+        stepsContainer.innerHTML = '';
+        if (stepsLoading) stepsLoading.style.display = 'none';
+      }
+    });
+  }
+
+  runButton.addEventListener('click', () => {
+    status.style.display = 'none';
+    runButton.disabled = true;
+    runButton.textContent = 'Processing...';
+
+    let finalParams = {};
+    try {
+      const yamlContent = yamlInput.textContent || yamlInput.innerText || '';
+      finalParams = jsyaml.load(yamlContent.trim());
+    } catch (e) {
+      status.className = 'error';
+      status.style.display = 'block';
+      status.textContent = 'Invalid YAML: ' + e.message;
+      runButton.disabled = false;
+      runButton.textContent = 'Run Notebook';
+      return;
+    }
+
+    if (stepsToggle && stepsToggle.checked) {
+      const selectedSteps = [...stepsContainer.querySelectorAll('input[type="checkbox"]:checked')].map(cb => cb.value);
+      if (selectedSteps.length > 0) finalParams.steps = selectedSteps;
+    }
+
+    displayParams(finalParams);
+
+    fetch('/run-notebook', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ parameters: finalParams })
+    })
+    .then(response => response.json())
+    .then(data => {
+      runButton.disabled = false;
+      runButton.textContent = 'Run Notebook';
+      status.style.display = 'block';
+
+      if (data.status === 'success') {
+        status.className = 'success';
+
+        fetch('/get-config')
+          .then(res => res.json())
+          .then(config => {
+            if (config.status === 'success' && config.config.github?.target_repo) {
+              status.innerHTML = 'Notebook executed successfully!<br><a href="' + config.config.github.target_repo + '" target="_blank" style="color: #155724; font-weight: bold;">View results in GitHub →</a>';
+            } else {
+              status.textContent = 'Notebook executed successfully!';
+            }
+
+            const hash = typeof getHash === 'function' ? getHash() : {};
+            const gonext = hash.gonext;
+            if (gonext) {
+              const redirectMsg = document.createElement('div');
+              redirectMsg.style.marginTop = '10px';
+              redirectMsg.style.color = '#155724';
+              redirectMsg.innerHTML = 'Redirecting...';
+              status.appendChild(redirectMsg);
+              setTimeout(() => { window.location.href = gonext; }, 2000);
+            }
+          })
+          .catch(() => {
+            status.textContent = 'Notebook executed successfully!';
+          });
+      } else {
+        status.className = 'error';
+        status.textContent = 'Error: ' + data.message;
+      }
+    })
+    .catch(error => {
+      runButton.disabled = false;
+      runButton.textContent = 'Run Notebook';
+      status.className = 'error';
+      status.style.display = 'block';
+      status.textContent = 'Request failed: ' + error.message;
+    });
+  });
+
+  function renderSelectionsFromYaml() {
+    const featuresList = document.getElementById('rsFeaturesList');
+    const targetList = document.getElementById('rsTargetList');
+    const featuresEmpty = document.getElementById('rsFeaturesEmpty');
+    const targetEmpty = document.getElementById('rsTargetEmpty');
+    const joinStatus = document.getElementById('rsJoinStatus');
+    if (!featuresList || !targetList || !featuresEmpty || !targetEmpty) return;
+
+    let yamlObj = {};
+    try {
+      const yamlContent = yamlInput.textContent || yamlInput.innerText || '';
+      yamlObj = jsyaml.load(yamlContent.trim()) || {};
+    } catch (e) {
+      return;
+    }
+
+    const features = yamlObj.features || {};
+    const targets = yamlObj.targets || {};
+
+    const parseCsv = (val) => {
+      if (!val) return [];
+      if (Array.isArray(val)) return val.map(x => String(x).trim()).filter(Boolean);
+      return String(val).split(',').map(s => s.trim()).filter(Boolean);
+    };
+
+    const featureItems = parseCsv(features.dcid || features.data);
+    const targetItems = parseCsv(targets.dcid || targets.data);
+
+    featuresList.innerHTML = '';
+    targetList.innerHTML = '';
+
+    const createCard = (label, role) => {
+      if (!window.rsCreateRowCard) return null;
+      const roleLabel = role === 'features' ? 'Features' : 'Targets';
+      return window.rsCreateRowCard({
+        item: { label, dcid: label },
+        role,
+        roleLabel,
+        onAdd: () => {
+          if (window.rsOpenAddPopupWithRole) {
+            window.rsOpenAddPopupWithRole(role);
+          }
+        },
+        onRemove: () => {},
+        onPreviewInline: () => {}
+      });
+    };
+
+    featureItems.forEach((label) => {
+      const card = createCard(label, 'features');
+      if (!card) return;
+      featuresList.appendChild(card);
+      if (card._rsAttachMenu) {
+        card._rsAttachMenu();
+      }
+    });
+
+    targetItems.forEach((label) => {
+      const card = createCard(label, 'target');
+      if (!card) return;
+      targetList.appendChild(card);
+      if (card._rsAttachMenu) {
+        card._rsAttachMenu();
+      }
+    });
+
+    featuresEmpty.style.display = featureItems.length ? 'none' : 'block';
+    targetEmpty.style.display = targetItems.length ? 'none' : 'block';
+
+    if (joinStatus) {
+      const common = (features.common || '').toString().trim();
+      const scope = (features.scope || yamlObj.scope || '').toString().trim();
+      if (common || scope) {
+        const scopeLabel = scope || 'country';
+        const commonLabel = common || 'FIPS';
+        joinStatus.textContent = `Joining on: ${scopeLabel} using common ${commonLabel}`;
+        joinStatus.style.display = 'block';
+      } else {
+        joinStatus.style.display = 'none';
+      }
+    }
+  }
 }
 
 // Function to convert YAML to URL parameters
@@ -390,8 +1212,6 @@ function yamlToUrlParams(yamlStr) {
 }
 
 // Global variable to store cached parambase YAML content
-let cachedParambaseContent = {};
-let currentParambase = null;
 
 // Function to create choose links after parambase dropdown
 function createChooseLinks() {
@@ -603,6 +1423,9 @@ async function loadParambaseYAML(key, url) {
         
         // Update the paramText div with new base YAML
         updateParamTextWithBase(yamlText);
+        if (typeof window.rsRefreshFromYaml === 'function') {
+          window.rsRefreshFromYaml();
+        }
         
     } catch (error) {
         console.error('Error loading parambase YAML:', error);
