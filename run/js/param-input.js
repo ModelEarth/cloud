@@ -487,7 +487,7 @@ function rsAttachCardMenu(options) {
 
   const ensureMenu = () => {
     if (typeof addPanelMenu !== 'function') return;
-    if (document.getElementById(`${card.id}MenuToggleHolder`)) return;
+    if (document.getElementById(`${card.id}MenuControl`)) return;
 
     const menuItems = [
       { label: `Expand ${roleLabel}`, action: 'expand', icon: 'open_in_full' },
@@ -688,7 +688,7 @@ function rsCreateRowCard(options) {
           updateMenuLabels(`${card.id}Menu`, card.id, roleLabel);
         }
         if (typeof setPanelToggleIcon === 'function') {
-          setPanelToggleIcon(`${card.id}MenuToggleHolder`, expanded ? 'arrow_drop_down_circle' : 'arrow_right');
+          setPanelToggleIcon(`${card.id}MenuControl`, expanded ? 'arrow_drop_down_circle' : 'arrow_right');
         }
       }
     });
@@ -697,7 +697,7 @@ function rsCreateRowCard(options) {
   card._rsAttachMenu = attachMenu;
 
   card.addEventListener('click', (ev) => {
-    if (ev.target && ev.target.closest(`[id$=\"MenuToggleHolder\"], #${card.id}Menu`)) {
+    if (ev.target && ev.target.closest(`[id$=\"MenuControl\"], #${card.id}Menu`)) {
       return;
     }
     const isExpanded = details && details.style.display === 'block';
@@ -714,7 +714,7 @@ function rsCreateRowCard(options) {
       updateMenuLabels(`${card.id}Menu`, card.id, roleLabel);
     }
     if (typeof setPanelToggleIcon === 'function') {
-      setPanelToggleIcon(`${card.id}MenuToggleHolder`, nextExpanded ? 'arrow_drop_down_circle' : 'arrow_right');
+      setPanelToggleIcon(`${card.id}MenuControl`, nextExpanded ? 'arrow_drop_down_circle' : 'arrow_right');
     }
   });
 
