@@ -229,7 +229,27 @@ function rsRenderSelectionsFromYamlProfile() {
       item: { label, dcid: label },
       role,
       roleLabel,
-      onAdd: () => window.rsOpenAddPopupWithRole && window.rsOpenAddPopupWithRole(role),
+      onAdd: () => {
+  // /profile/item: "Add Features" should trigger another USDA search (row set)
+  if (typeof isProfileItemPage === 'function' && isProfileItemPage()) {
+    if (role === 'features' && typeof window.rsMenuInsightsAddFeatures === 'function') {
+      window.rsMenuInsightsAddFeatures();
+      return;
+    }
+    if (role === 'target') {
+      const sel = document.getElementById('menuTargetSelect');
+      if (sel) {
+        sel.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        sel.focus();
+        sel.click();
+      }
+      return;
+    }
+  }
+
+  // other pages keep original behavior
+  window.rsOpenAddPopupWithRole && window.rsOpenAddPopupWithRole(role);
+},
       onRemove: () => {},
       onPreviewInline: () => {}
     });
@@ -371,6 +391,12 @@ function updateYAMLFromHash(parsedContent, hash, addHashKeys) {
                
                 traverseAndUpdate(obj[key], currentPath);
             } else {
+              // On /profile/item, never let hash overwrite features.path
+if (typeof isProfileItemPage === 'function' && isProfileItemPage()) {
+  if (currentPath === 'features.path') {
+    return;
+  }
+}
                 // Process value for comma-separated strings
                 const processedValue = handleCommaSeparatedValue(obj[key], currentPath);
                 // Update the parsedContent with the processed value
@@ -1918,7 +1944,7 @@ async function loadPopularFoodsIntoBaseParams() {
 
     // Push into YAML + refresh RealityStream editor
     if (typeof applyCachedFoodApiUrlToYaml === 'function') {
-      applyCachedFoodApiUrlToYaml();   // sets yamlObj.features.path = lastFoodApiUrl
+      applyCachedFoodApiUrlToYaml();   
     }
     if (typeof window.rsRefreshFromYaml === 'function') {
       window.rsRefreshFromYaml();
@@ -1955,7 +1981,11 @@ async function loadParambaseYAML(key, url) {
 }
 
 function applyCachedFoodApiUrlToYaml() {
-  const url = window.profileItemCache?.lastFoodApiUrl;
+  // Prefer the search endpoint  for Menu Insights
+  const url =
+    window.profileItemCache?.lastFoodSearchApiUrl ||
+    window.profileItemCache?.lastFoodApiUrl;
+
   if (!url) return false;
 
   const preTag = document.querySelector('#paramText pre');
@@ -1968,28 +1998,46 @@ function applyCachedFoodApiUrlToYaml() {
     yamlObj = {};
   }
 
- 
+  // Merge hash overrides 
   try {
     const hash = (typeof getHash === "function") ? getHash() : {};
     const addHashKeys = ["folder", "features", "targets", "models"];
     yamlObj = updateYAMLFromHash(yamlObj, hash, addHashKeys);
-  } catch (e) {
-    // ignore hash merge errors
-  }
+  } catch (e) {}
 
- 
   yamlObj.folder = yamlObj.folder || 'profile-insights';
   yamlObj.features = yamlObj.features || {};
+ 
+
+if (!yamlObj.features.path) {
+  // first feature
   yamlObj.features.path = url;
 
-  // Write back
-  preTag.textContent = jsyaml.dump(yamlObj, { lineWidth: -1, flowLevel: -1 });
-
-  // Refresh UI
-  if (typeof window.rsRefreshFromYaml === "function") {
-    window.rsRefreshFromYaml();
+} else if (Array.isArray(yamlObj.features.path)) {
+  // already multiple → append if not duplicate
+  if (!yamlObj.features.path.includes(url)) {
+    yamlObj.features.path.push(url);
   }
-  updateResetButtonVisibility();
+
+} else {
+  // single string → convert to array and append
+  if (yamlObj.features.path !== url) {
+    yamlObj.features.path = [
+      yamlObj.features.path,
+      url
+    ];
+  }
+}
+
+  preTag.textContent = jsyaml.dump(yamlObj, { lineWidth: -1, flowLevel: -1 });
+  try {
+  const h = (typeof getHash === 'function') ? getHash() : {};
+  if (h && h['features.path']) {
+    delete h['features.path'];
+    goHash(h);
+  }
+} catch (e) {}
+
   return true;
 }
 
