@@ -206,7 +206,7 @@ function rsRenderSelectionsFromYamlProfile() {
 
   const s = String(val).trim();
 
-  // On /profile/item, treat USDA URLs as a single value (don't split by commas)
+  // On /profile/item, treat USDA URLs as a single value 
   if (typeof isProfileItemPage === 'function' && isProfileItemPage()) {
     if (currentPath === 'features.path' || currentPath === 'targets.path') {
       return s ? [s] : [];
@@ -225,12 +225,28 @@ function rsRenderSelectionsFromYamlProfile() {
   const createCard = (label, role) => {
     if (!window.rsCreateRowCard) return null;
     const roleLabel = role === 'features' ? 'Features' : 'Targets';
-    return window.rsCreateRowCard({
-      item: { label, dcid: label },
-      role,
-      roleLabel,
+   let displayLabel = label;
+let fullPath = label;
+
+const cached = window.profileItemCache || {};
+const country = cached.lastCountry ? `(${cached.lastCountry})` : "";
+const q = cached.lastFoodQuery ? cached.lastFoodQuery : "";
+
+const isUrl = /^https?:\/\//i.test(String(label || ""));
+
+// Only prettify on /profile/item for USDA feature URLs
+if (typeof isProfileItemPage === "function" && isProfileItemPage()) {
+  if (role === "features" && isUrl) {
+    displayLabel = q ? `USDA search: ${q} ${country}`.trim() : `USDA API ${country}`.trim();
+  }
+}
+
+return window.rsCreateRowCard({
+  item: { label: displayLabel, dcid: label, fullPath: fullPath },
+  role,
+  roleLabel,
       onAdd: () => {
-  // /profile/item: "Add Features" should trigger another USDA search (row set)
+  // /profile/item: "Add Features" should trigger another USDA search 
   if (typeof isProfileItemPage === 'function' && isProfileItemPage()) {
     if (role === 'features' && typeof window.rsMenuInsightsAddFeatures === 'function') {
       window.rsMenuInsightsAddFeatures();
@@ -746,6 +762,17 @@ function rsAttachCardMenu(options) {
 
 window.rsAttachCardMenu = rsAttachCardMenu;
 
+function rsTruncate(s, max = 50) {
+  s = String(s || "");
+  if (s.length <= max) return s;
+  return s.slice(0, Math.max(0, max - 3)) + "...";
+}
+
+function rsLooksLikeUrl(s) {
+  s = String(s || "");
+  return /^https?:\/\//i.test(s);
+}
+
 function rsCreateRowCard(options) {
   const {
     item,
@@ -767,7 +794,16 @@ function rsCreateRowCard(options) {
 
   const title = document.createElement('div');
   title.className = 'rsCardTitle';
-  title.textContent = (item && (item.label || item.dcid)) || '';
+ const rawTitle = (item && (item.label || item.dcid)) || '';
+const linkUrl = (item && (item.fullPath || item.href)) || '';
+
+const url = rsLooksLikeUrl(linkUrl) ? linkUrl : (rsLooksLikeUrl(rawTitle) ? rawTitle : '');
+if (url) {
+  const shortText = rsTruncate(rawTitle, 50); // truncate the TITLE, not the URL
+  title.innerHTML = `<a href="${url}" target="_blank" rel="noopener noreferrer" title="${url}">${shortText}</a>`;
+} else {
+  title.textContent = rawTitle;
+}
 
   const menuWrap = document.createElement('div');
   menuWrap.className = 'rsCardMenuHolder';
