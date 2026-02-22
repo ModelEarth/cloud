@@ -12,6 +12,18 @@ function safeGetHash() {
 
 document.addEventListener('hashChangeEvent', function (event) {
     console.log("param-input.js detects URL hashChangeEvent");
+    if (isProfileItemPage && isProfileItemPage()) {
+  stripParambaseFromHash();
+  const applied = applyFoodApiYamlIfAvailable && applyFoodApiYamlIfAvailable();
+    if (applied) {
+      if (typeof window.rsRefreshFromYaml === 'function') {
+        window.rsRefreshFromYaml();
+      }
+      updateResetButtonVisibility();
+      return;
+    }
+}
+
     
     // Reload YAML content for the current parambase
     const hash = safeGetHash();
@@ -168,6 +180,111 @@ function renderPathControls() {
   }
 }
 
+function rsRenderSelectionsFromYamlProfile() {
+  const featuresList = document.getElementById('rsFeaturesList');
+  const targetList = document.getElementById('rsTargetList');
+  const featuresEmpty = document.getElementById('rsFeaturesEmpty');
+  const targetEmpty = document.getElementById('rsTargetEmpty');
+  const joinStatus = document.getElementById('rsJoinStatus');
+
+  const preTag = document.querySelector('#paramText pre');
+  if (!featuresList || !targetList || !featuresEmpty || !targetEmpty || !preTag) return;
+
+  let yamlObj = {};
+  try {
+    yamlObj = jsyaml.load((preTag.textContent || '').trim()) || {};
+  } catch (e) {
+    return;
+  }
+
+  const features = yamlObj.features || {};
+  const targets = yamlObj.targets || {};
+
+  const parseCsv = (val, currentPath) => {
+  if (!val) return [];
+  if (Array.isArray(val)) return val.map(x => String(x).trim()).filter(Boolean);
+
+  const s = String(val).trim();
+
+  // On /profile/item, treat USDA URLs as a single value (don't split by commas)
+  if (typeof isProfileItemPage === 'function' && isProfileItemPage()) {
+    if (currentPath === 'features.path' || currentPath === 'targets.path') {
+      return s ? [s] : [];
+    }
+  }
+
+  return s.split(',').map(x => x.trim()).filter(Boolean);
+};
+
+  const featureItems = parseCsv(features.path || features.dcid || features.data, 'features.path');
+  const targetItems  = parseCsv(targets.path  || targets.dcid  || targets.data,  'targets.path');
+
+  featuresList.innerHTML = '';
+  targetList.innerHTML = '';
+
+  const createCard = (label, role) => {
+    if (!window.rsCreateRowCard) return null;
+    const roleLabel = role === 'features' ? 'Features' : 'Targets';
+    return window.rsCreateRowCard({
+      item: { label, dcid: label },
+      role,
+      roleLabel,
+      onAdd: () => {
+  // /profile/item: "Add Features" should trigger another USDA search (row set)
+  if (typeof isProfileItemPage === 'function' && isProfileItemPage()) {
+    if (role === 'features' && typeof window.rsMenuInsightsAddFeatures === 'function') {
+      window.rsMenuInsightsAddFeatures();
+      return;
+    }
+    if (role === 'target') {
+      const sel = document.getElementById('menuTargetSelect');
+      if (sel) {
+        sel.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        sel.focus();
+        sel.click();
+      }
+      return;
+    }
+  }
+
+  // other pages keep original behavior
+  window.rsOpenAddPopupWithRole && window.rsOpenAddPopupWithRole(role);
+},
+      onRemove: () => {},
+      onPreviewInline: () => {}
+    });
+  };
+
+  featureItems.forEach((label) => {
+    const card = createCard(label, 'features');
+    if (!card) return;
+    featuresList.appendChild(card);
+    card._rsAttachMenu && card._rsAttachMenu();
+  });
+
+  targetItems.forEach((label) => {
+    const card = createCard(label, 'target');
+    if (!card) return;
+    targetList.appendChild(card);
+    card._rsAttachMenu && card._rsAttachMenu();
+  });
+
+  featuresEmpty.style.display = featureItems.length ? 'none' : 'block';
+  targetEmpty.style.display = targetItems.length ? 'none' : 'block';
+
+  if (joinStatus) {
+    const common = (features.common || '').toString().trim();
+    const scope = (features.scope || yamlObj.scope || '').toString().trim();
+    if (common || scope) {
+      joinStatus.textContent = `Joining on: ${scope || 'country'} using common ${common || 'FIPS'}`;
+      joinStatus.style.display = 'block';
+    } else {
+      joinStatus.style.display = 'none';
+    }
+  }
+}
+
+
 // Function to reload paramText content without affecting the dropdown
 function loadParamTextFromCurrentState() {
     const paramTextDiv = document.getElementById('paramText');
@@ -182,7 +299,7 @@ function loadParamTextFromCurrentState() {
         updateParamTextWithBase(cachedParambaseContent[currentParambase]);
     } else {
         // Fall back to the original loadParamText process
-        let preContent = preTag.innerHTML;
+        let preContent = preTag.textContent;
         let hash = getHash();
         console.log("loadParamTextFromCurrentState - hash:", hash);
         
@@ -191,7 +308,7 @@ function loadParamTextFromCurrentState() {
         let parsedContent = parseYAML(preContent);
         parsedContent = updateYAMLFromHash(parsedContent, hash, addHashKeys);
         preContent = convertToYAML(parsedContent);
-        preTag.innerHTML = preContent;
+        preTag.textContent = preContent;
         
         // Update reset button visibility after content changes
         updateResetButtonVisibility();
@@ -234,18 +351,24 @@ function updateYAMLFromHash(parsedContent, hash, addHashKeys) {
 
 
     // Helper function to handle comma-separated values, including encrypted commas
-   function handleCommaSeparatedValue(value) {
+ function handleCommaSeparatedValue(value, currentPath) {
   if (typeof value !== 'string') return value;
 
-  // Decode first (fixes %2F, %2C, etc.)
   const decoded = decodeHashParamValue(value);
 
-  // If it's comma-separated, return array
+  // On /profile/item keep features.path + targets.path as a string 
+  if (typeof isProfileItemPage === 'function' && isProfileItemPage()) {
+    if (currentPath === 'features.path' || currentPath === 'targets.path') {
+      return decoded;
+    }
+  }
+
   if (decoded.includes(',')) {
-    return decoded.split(',').map(item => item.trim());
+    return decoded.split(',').map(item => item.trim()).filter(Boolean);
   }
   return decoded;
 }
+
 
 
     // Check if a path should be included based on addHashKeys
@@ -265,11 +388,17 @@ function updateYAMLFromHash(parsedContent, hash, addHashKeys) {
             }
 
             if (typeof obj[key] === 'object' && obj[key] !== null) {
-                // If value is an object, recurse deeper
+               
                 traverseAndUpdate(obj[key], currentPath);
             } else {
+              // On /profile/item, never let hash overwrite features.path
+if (typeof isProfileItemPage === 'function' && isProfileItemPage()) {
+  if (currentPath === 'features.path') {
+    return;
+  }
+}
                 // Process value for comma-separated strings
-                const processedValue = handleCommaSeparatedValue(obj[key]);
+                const processedValue = handleCommaSeparatedValue(obj[key], currentPath);
                 // Update the parsedContent with the processed value
                 setNestedValue(parsedContent, currentPath, processedValue);
             }
@@ -322,24 +451,72 @@ function displayParams(obj) {
     paramDiv.textContent = 'Parameters:\n' + JSON.stringify(obj, null, 2);
   }
 
+  function disableParambaseDropdownOnProfileItem() {
+  if (!isProfileItemPage()) return;
+
+  // remove wrapper row if it exists 
+  const row = document.getElementById('parambase-row');
+  if (row) row.remove();
+
+  // remove choose links if they exist
+  const chooseLinks = document.getElementById('chooseLinks');
+  if (chooseLinks) chooseLinks.remove();
+
+  // remove custom path input if it exists
+  const customDiv = document.getElementById('customPathDiv');
+  if (customDiv) customDiv.remove();
+
+  // remove the raw select if it exists outside wrapper
+  const select = document.getElementById('parambase');
+  if (select) select.remove();
+}
+
+
 function bootParamInput() {
+   if (isProfileItemPage()) {
+    stripParambaseFromHash();
+    disableParambaseDropdownOnProfileItem();
+  }
+  if (isProfileItemPage()) {
   if (typeof waitForElm === 'function') {
     waitForElm('#pathControls').then(renderPathControls);
   } else {
     renderPathControls();
   }
+}
+ else {
+    renderPathControls();
+  }
+if (isProfileItemPage()) {
+  window.rsRefreshFromYaml = rsRenderSelectionsFromYamlProfile;
+}
+
+
+
+ const parambaseSelect = document.getElementById('parambase');
+if (!isProfileItemPage() && parambaseSelect && typeof loadBaseParamsSelect === 'function') {
+  loadBaseParamsSelect()
+    .then(() => {
+      handleHashChange();
+      document.dispatchEvent(new Event('hashChangeEvent'));
+    })
+    .catch(err => console.error('Error loading base params:', err));
+}
+
 
   initRunPage();
   // Only load paramText if we're not expecting parambase to be loaded later
-  // The parambase system will handle this when it's ready
+ 
   const hash = safeGetHash();
   if (!hash.parambase) {
     loadParamText();
   }
-  
+  setTimeout(() => window.rsRefreshFromYaml && window.rsRefreshFromYaml(), 0);
+
   // Listen for hash changes to update YAML content when hash params change
   window.addEventListener('hashchange', function() {
     handleHashChange();
+    if (window.rsRefreshFromYaml) window.rsRefreshFromYaml();
   });
   
   // Add edit detection for paramText
@@ -352,7 +529,7 @@ function bootParamInput() {
     const preTag = paramTextDiv.querySelector('pre');
     if (!preTag) return;
     
-    let preContent = preTag.innerHTML;
+    let preContent = preTag.textContent;
 
     let hash = getHash();
     console.log("hash:", hash);
@@ -367,14 +544,31 @@ function bootParamInput() {
       let parsedContent = parseYAML(preContent);
       parsedContent = updateYAMLFromHash(parsedContent, hash, addHashKeys);
       preContent = convertToYAML(parsedContent);
-      preTag.innerHTML = preContent;
+      preTag.textContent = preContent;
       
       // Update reset button visibility after content changes
       updateResetButtonVisibility();
+      if (window.rsRefreshFromYaml) window.rsRefreshFromYaml();
+
     }
   }
   
   function handleHashChange() {
+    //On profile/item, keep Insights tied to the USDA API URL if available
+  if (isProfileItemPage && isProfileItemPage()) {
+     stripParambaseFromHash();
+   const applied = applyFoodApiYamlIfAvailable && applyFoodApiYamlIfAvailable();
+if (applied) {
+  // keep going so targets.path and other hash keys still get processed
+  if (typeof window.rsRefreshFromYaml === 'function') {
+    window.rsRefreshFromYaml();
+  }
+  updateResetButtonVisibility();
+  // DO NOT return
+}
+
+  }
+
     const hash = getHash();
     
     // Filter out script loading parameters (but don't exit)
@@ -408,6 +602,22 @@ function bootParamInput() {
     }
     // If parambase changed, reload the YAML
     else if (hash.parambase) {
+
+      if (isProfileItemPage()) {
+  console.log("Ignoring parambase hash on profile/item");
+
+  // remove it from hash completely
+  delete hash.parambase;
+  delete hash.customYamlUrl;
+  goHash(hash);
+
+  // if the parambase dropdown exists, clear it safely
+  const select = document.getElementById('parambase');
+  if (select) select.value = "";
+
+  return;
+}
+
       // Decode hash value using shared function
       const decodedParambase = decodeHashValue(hash.parambase);
       
@@ -722,6 +932,8 @@ function rsCreateRowCard(options) {
 }
 
 window.rsCreateRowCard = rsCreateRowCard;
+
+
 
 function initRunPage() {
   const mode = document.body ? document.body.dataset.paramInput : '';
@@ -1054,6 +1266,7 @@ function initRunPage() {
     const featuresEmpty = document.getElementById('rsFeaturesEmpty');
     const targetEmpty = document.getElementById('rsTargetEmpty');
     const joinStatus = document.getElementById('rsJoinStatus');
+
     if (!featuresList || !targetList || !featuresEmpty || !targetEmpty) return;
 
     let yamlObj = {};
@@ -1073,8 +1286,9 @@ function initRunPage() {
       return String(val).split(',').map(s => s.trim()).filter(Boolean);
     };
 
-    const featureItems = parseCsv(features.dcid || features.data);
-    const targetItems = parseCsv(targets.dcid || targets.data);
+    const featureItems = parseCsv(features.path || features.dcid || features.data);
+const targetItems  = parseCsv(targets.path  || targets.dcid  || targets.data);
+
 
     featuresList.innerHTML = '';
     targetList.innerHTML = '';
@@ -1130,6 +1344,14 @@ function initRunPage() {
       }
     }
   }
+
+  populateFoodDropdown();
+if (isProfileItemPage()) {
+  document.addEventListener("hashChangeEvent", populateFoodDropdown);
+  window.addEventListener("hashchange", populateFoodDropdown);
+}
+
+
 }
 
 // Function to convert YAML to URL parameters
@@ -1188,8 +1410,11 @@ function yamlToUrlParams(yamlStr) {
             const paramKey = prefix ? `${prefix}.${key}` : key;
 
             if (typeof value === 'string') {
-                hashParams.push(`${paramKey}=${encodeURIComponent(value)}`);
-            } else if (Array.isArray(value)) {
+  hashParams.push(`${paramKey}=${encodeURIComponent(value)}`);
+} else if (Array.isArray(value)) {
+  const joinedValues = value.map(v => encodeURIComponent(v)).join(',');
+  hashParams.push(`${paramKey}=${joinedValues}`);
+} else if (Array.isArray(value)) {
                 // OLD (encodes commas):
                 //hashParams.push(`${paramKey}=${encodeURIComponent(value.join(','))}`);
 
@@ -1241,9 +1466,213 @@ function createChooseLinks() {
     parambaseSelect.parentNode.insertBefore(chooseDiv, parambaseSelect.nextSibling);
 }
 
+
+function stripParambaseFromHash() {
+  const h = getHash();
+  if (h.parambase) {
+    delete h.parambase;
+    delete h.customYamlUrl;
+    goHash(h);
+    return true;
+  }
+  return false;
+}
+
+function isProfileItemPage() {
+  const p = (window.location.pathname || '');
+  return p === '/profile/item/' || p.startsWith('/profile/item/');
+}
+
+function ensureFoodDropdownUI() {
+   if (!window.location.pathname.includes("/profile/item")) return;
+  if (!isProfileItemPage()) return;
+
+  // Already created
+  if (document.getElementById('foodbase-row')) return;
+
+  const paramTextDiv = document.getElementById('paramText');
+  if (!paramTextDiv) return;
+
+  // Build row
+  const row = document.createElement('div');
+  row.id = 'foodbase-row';
+  row.style.display = 'flex';
+  row.style.alignItems = 'center';
+  row.style.gap = '8px';
+  row.style.marginBottom = '10px';
+
+  const label = document.createElement('label');
+  label.textContent = 'Food items:';
+  label.style.fontSize = '14px';
+  label.style.marginBottom = '0';
+
+  const select = document.createElement('select');
+  select.id = 'foodbase';
+  select.style.maxWidth = '520px';
+  select.innerHTML = `<option value="">Select a food...</option>`;
+
+  const refreshBtn = document.createElement('button');
+  refreshBtn.type = 'button';
+  refreshBtn.className = 'btn btn-white btn-sm';
+  refreshBtn.textContent = 'Refresh list';
+
+  row.appendChild(label);
+  row.appendChild(select);
+  row.appendChild(refreshBtn);
+
+  // Insert above paramText
+  paramTextDiv.parentNode.insertBefore(row, paramTextDiv);
+
+  refreshBtn.addEventListener('click', () => {
+    populateFoodDropdown();
+  });
+
+select.addEventListener("change", async (e) => {
+  const url = e.target.value;
+  if (!url) return;
+
+  // If user selected a USDA search endpoint, fetch results and rebuild dropdown
+  if (url.includes("/foods/search")) {
+    try {
+      const r = await fetch(url);
+      const data = await r.json();
+
+      const apiKey = "bLecediTVa2sWd8AegmUZ9o7DxYFSYoef9B4i1Ml";
+
+      window.profileItemCache = window.profileItemCache || {};
+      window.profileItemCache.lastFoodSearchApiUrl = url;
+      window.profileItemCache.lastFoodSearchResults = (data.foods || [])
+        .filter(f => f && f.fdcId)
+        .map(f => ({
+          label: f.description,
+          url: `https://api.nal.usda.gov/fdc/v1/food/${f.fdcId}?api_key=${apiKey}`,
+          fdcId: f.fdcId
+        }));
+
+      // Persist + rebuild dropdown to show actual food detail URLs
+      if (typeof saveProfileItemCache === "function") {
+        saveProfileItemCache();
+      } else {
+        try { sessionStorage.setItem("profileItemCache", JSON.stringify(window.profileItemCache)); } catch (err) {}
+      }
+
+      populateFoodDropdown();
+      return;
+    } catch (err) {
+      console.warn("Failed to fetch USDA search results:", err);
+      return;
+    }
+  }
+
+  // Else: it's already a /food/{fdcId} url (detail endpoint)
+  window.profileItemCache = window.profileItemCache || {};
+  window.profileItemCache.lastFoodApiUrl = url;
+
+  if (typeof saveProfileItemCache === "function") {
+    saveProfileItemCache();
+  } else {
+    try { sessionStorage.setItem("profileItemCache", JSON.stringify(window.profileItemCache)); } catch (err) {}
+  }
+
+  // Inject into YAML + refresh RealityStream editor
+  if (typeof applyCachedFoodApiUrlToYaml === "function") {
+    applyCachedFoodApiUrlToYaml();
+  }
+  if (typeof window.rsRefreshFromYaml === "function") {
+    window.rsRefreshFromYaml();
+  }
+});
+
+
+  // Fill initial options
+  populateFoodDropdown();
+}
+
+async function populateFoodDropdown() {
+  console.log("populateFoodDropdown running");
+
+  const sel = document.getElementById("foodbase");
+  if (!sel) return;
+
+  // Always start with placeholder
+  sel.innerHTML = `<option value="">Select a food...</option>`;
+
+  const hash = (typeof getHash === "function") ? getHash() : getUrlHash();
+  const cached = window.profileItemCache || {};
+
+  // 1) Prefer cached list (if we have it)
+  let list = cached.lastFoodSearchResults || cached.recentFoods || [];
+
+  // 2) If empty (fresh tab), rebuild list from hash.foodSearchUrl
+  if ((!list || list.length === 0) && hash.foodSearchUrl) {
+    try {
+      const r = await fetch(hash.foodSearchUrl);
+      const data = await r.json();
+
+      const apiKey = "bLecediTVa2sWd8AegmUZ9o7DxYFSYoef9B4i1Ml";
+      list = (data.foods || [])
+        .filter(f => f && f.fdcId)
+        .map(f => ({
+          label: f.description,
+          url: `https://api.nal.usda.gov/fdc/v1/food/${f.fdcId}?api_key=${apiKey}`,
+          fdcId: f.fdcId
+        }));
+
+      // cache it so refresh works within the same session
+      window.profileItemCache.lastFoodSearchResults = list;
+      saveProfileItemCache?.();
+    } catch (e) {
+      console.warn("Failed to fetch foodSearchUrl:", e);
+    }
+  }
+
+  // 3) Render options
+  list.forEach(item => {
+    const opt = document.createElement("option");
+    opt.value = item.url;
+    opt.textContent = item.label || item.url;
+    sel.appendChild(opt);
+  });
+
+  // 4) Select current value if present
+  const current = cached.lastFoodApiUrl || hash["features.path"];
+  if (current) sel.value = current;
+}
+
+
+
+
+function applyFoodApiYamlIfAvailable() {
+  let apiUrl = window.profileItemCache?.lastFoodApiUrl;
+
+  // Restore cache from sessionStorage (you store profileItemCache as JSON)
+  if (!apiUrl) {
+    try {
+      const saved = JSON.parse(sessionStorage.getItem('profileItemCache') || '{}');
+      window.profileItemCache = { ...(window.profileItemCache || {}), ...(saved || {}) };
+      apiUrl = window.profileItemCache.lastFoodApiUrl;
+    } catch (e) {}
+  }
+
+  if (!apiUrl) return false;
+
+  // Hide base-params UI on profile/item
+  const row = document.getElementById('parambase-row');
+  if (row) row.style.display = 'none';
+  const chooseLinks = document.getElementById('chooseLinks');
+  if (chooseLinks) chooseLinks.style.display = 'none';
+
+  // Inject into YAML
+  return applyCachedFoodApiUrlToYaml();
+}
+
+
+
 // Function to load base parameter selector dropdown
 async function loadBaseParamsSelect() {
     console.log('loadBaseParamsSelect() called');
+
+   
     
     // Insert dropdown before the paramText div
     const paramTextDiv = document.getElementById('paramText');
@@ -1370,6 +1799,19 @@ async function loadBaseParamsSelect() {
             console.error('Error loading custom YAML from hash:', error);
         }
     } else if (hash.parambase) {
+
+      if (isProfileItemPage()) {
+    console.log("Ignoring parambase hash on profile/item");
+
+    // remove it from hash completely
+    delete hash.parambase;
+    goHash(hash);
+
+    // keep dropdown empty
+    select.value = "";
+
+    return;
+  }
         // Decode hash value using shared function
         const decodedParambase = decodeHashValue(hash.parambase);
         
@@ -1392,18 +1834,124 @@ async function loadBaseParamsSelect() {
             }
         }
     } else {
-        // Load first option by default if no parambase in hash
-        if (paramOptions.length > 0) {
-            const firstOption = paramOptions[0];
-            select.value = firstOption.key;
-            updateHashParam('parambase', firstOption.key);
-            await loadParambaseYAML(firstOption.key, firstOption.url);
-        }
+        // On /profile/item, DO NOT default to Bee Density.
+  // If we have a cached food API URL, load that into YAML instead.
+  if (isProfileItemPage()) {
+    const applied = applyFoodApiYamlIfAvailable();
+    if (!applied) {
+      // No cached food URL yet; leave dropdown unselected and don't touch the hash.
+      select.value = '';
+    }
+  } else {
+    // On /profile/item
+  const isProfileItem = window.location.pathname.includes('/profile/item');
+
+  if (!isProfileItem && paramOptions.length > 0) {
+    // keep old behavior for other pages (if you want)
+    const firstOption = paramOptions[0];
+    select.value = firstOption.key;
+    updateHashParam('parambase', firstOption.key);
+    await loadParambaseYAML(firstOption.key, firstOption.url);
+  } else {
+    // leave dropdown on "Select parameter base..."
+    select.value = '';
+  }
+  }
     }
 
     // Ensure UI elements are created after dropdown is populated
     ensureParambaseUI();
+   if (isProfileItemPage()) {
+  applyCachedFoodApiUrlToYaml();
 }
+}
+
+
+async function loadPopularFoodsIntoBaseParams() {
+  const select = document.getElementById('parambase');
+  if (!select) return;
+
+  // Keep the row visible (we're reusing this dropdown for foods now)
+  const row = document.getElementById('parambase-row');
+  if (row) row.style.display = '';
+
+  // Hide choose links (models/location/features/targets) on /profile/item if you want
+  const chooseLinks = document.getElementById('chooseLinks');
+  if (chooseLinks) chooseLinks.style.display = 'none';
+
+  // Build dropdown shell
+  select.innerHTML = '<option value="">Select a food...</option>';
+
+  // Prefer the USDA "search" URL (this matches your Popular Foods list)
+  const cached = window.profileItemCache || {};
+  const searchUrl =
+    cached.lastFoodSearchApiUrl ||
+    (String(cached.lastFoodApiUrl || '').includes('/foods/search') ? cached.lastFoodApiUrl : '');
+
+  if (!searchUrl) {
+    // Nothing cached yet — leave empty. (Popular Foods panel still works.)
+    return;
+  }
+
+  // Extract api_key so we can build the /food/{fdcId} URLs
+  let apiKey = '';
+  try {
+    const u = new URL(searchUrl);
+    apiKey = u.searchParams.get('api_key') || '';
+  } catch (e) {}
+
+  // Fetch the same list used by the Popular Foods UI
+  let data;
+  try {
+    const resp = await fetch(searchUrl);
+    data = await resp.json();
+  } catch (e) {
+    console.warn('Failed to fetch popular foods:', e);
+    return;
+  }
+
+  const foods = (data && data.foods) ? data.foods : [];
+  foods.forEach(food => {
+    if (!food || !food.fdcId) return;
+
+    const label = food.description || `Food ${food.fdcId}`;
+    const detailUrl = apiKey
+      ? `https://api.nal.usda.gov/fdc/v1/food/${food.fdcId}?api_key=${apiKey}`
+      : `https://api.nal.usda.gov/fdc/v1/food/${food.fdcId}`;
+
+    const opt = document.createElement('option');
+    opt.value = detailUrl;          // value is the food detail API URL
+    opt.textContent = label;        // user sees the food name
+    opt.dataset.url = detailUrl;    // consistent with your existing pattern
+    select.appendChild(opt);
+  });
+
+  // Replace any previous listeners by using onchange
+  select.onchange = () => {
+    const chosenUrl = select.value;
+    if (!chosenUrl) return;
+
+    // This is what your YAML injector reads
+    window.profileItemCache = window.profileItemCache || {};
+    window.profileItemCache.lastFoodApiUrl = chosenUrl;
+
+    // Persist if label.js helper exists
+    if (typeof saveProfileItemCache === 'function') {
+      saveProfileItemCache();
+    } else {
+      try { sessionStorage.setItem('profileItemCache', JSON.stringify(window.profileItemCache)); } catch (e) {}
+    }
+
+    // Push into YAML + refresh RealityStream editor
+    if (typeof applyCachedFoodApiUrlToYaml === 'function') {
+      applyCachedFoodApiUrlToYaml();   
+    }
+    if (typeof window.rsRefreshFromYaml === 'function') {
+      window.rsRefreshFromYaml();
+    }
+  };
+}
+
 
 // Function to load YAML content from parambase URL
 async function loadParambaseYAML(key, url) {
@@ -1432,6 +1980,69 @@ async function loadParambaseYAML(key, url) {
     }
 }
 
+function applyCachedFoodApiUrlToYaml() {
+  // Prefer the search endpoint  for Menu Insights
+  const url =
+    window.profileItemCache?.lastFoodSearchApiUrl ||
+    window.profileItemCache?.lastFoodApiUrl;
+
+  if (!url) return false;
+
+  const preTag = document.querySelector('#paramText pre');
+  if (!preTag) return false;
+
+  let yamlObj = {};
+  try {
+    yamlObj = jsyaml.load(preTag.textContent || '') || {};
+  } catch (e) {
+    yamlObj = {};
+  }
+
+  // Merge hash overrides 
+  try {
+    const hash = (typeof getHash === "function") ? getHash() : {};
+    const addHashKeys = ["folder", "features", "targets", "models"];
+    yamlObj = updateYAMLFromHash(yamlObj, hash, addHashKeys);
+  } catch (e) {}
+
+  yamlObj.folder = yamlObj.folder || 'profile-insights';
+  yamlObj.features = yamlObj.features || {};
+ 
+
+if (!yamlObj.features.path) {
+  // first feature
+  yamlObj.features.path = url;
+
+} else if (Array.isArray(yamlObj.features.path)) {
+  // already multiple → append if not duplicate
+  if (!yamlObj.features.path.includes(url)) {
+    yamlObj.features.path.push(url);
+  }
+
+} else {
+  // single string → convert to array and append
+  if (yamlObj.features.path !== url) {
+    yamlObj.features.path = [
+      yamlObj.features.path,
+      url
+    ];
+  }
+}
+
+  preTag.textContent = jsyaml.dump(yamlObj, { lineWidth: -1, flowLevel: -1 });
+  try {
+  const h = (typeof getHash === 'function') ? getHash() : {};
+  if (h && h['features.path']) {
+    delete h['features.path'];
+    goHash(h);
+  }
+} catch (e) {}
+
+  return true;
+}
+
+
+
 // Function to update paramText div with base YAML and apply hash overrides
 function updateParamTextWithBase(baseYamlText) {
     const paramTextDiv = document.getElementById('paramText');
@@ -1439,7 +2050,7 @@ function updateParamTextWithBase(baseYamlText) {
     
     if (preTag) {
         // Set base YAML content
-        preTag.innerHTML = baseYamlText;
+        preTag.textContent = baseYamlText;
         
         // Apply hash overrides
         const hash = getHash();
@@ -1450,10 +2061,12 @@ function updateParamTextWithBase(baseYamlText) {
         parsedContent = updateYAMLFromHash(parsedContent, hash, addHashKeys);
         const updatedYaml = convertToYAML(parsedContent);
         
-        preTag.innerHTML = updatedYaml;
+        preTag.textContent = updatedYaml;
         
         // Update reset button visibility after content changes
         updateResetButtonVisibility();
+        if (window.rsRefreshFromYaml) window.rsRefreshFromYaml();
+
     }
 }
 
@@ -1577,7 +2190,7 @@ function getParambaseSelect() {
     return document.getElementById('parambase') || document.getElementById('parambase-select');
 }
 
-// Helper function to ensure parambase UI elements exist (idempotent)
+// Helper function to ensure parambase UI elements exist 
 function ensureParambaseUI() {
     const selectEl = getParambaseSelect();
     if (!selectEl) {
@@ -2005,8 +2618,9 @@ function goToPage(whatPage) { // Used by RealityStream/index.html
     const hashParts = [];
     for (const [key, value] of Object.entries(mergedParams)) {
         if (value !== undefined && value !== null && value !== '') {
-            const encodedValue = encodeHashValue(value);
-            hashParts.push(`${key}=${encodedValue}`);
+            const encodedValue = encodeURIComponent(String(value));
+hashParts.push(`${key}=${encodedValue}`);
+
         }
     }
     
