@@ -368,3 +368,14 @@ body.dark .rsDetails .v {
 body.dark .rsDetails a {
   color: #93c5fd;
 }
+
+
+
+.menuToggleHolderInline {
+  border: none !important;
+}
+
+.menuToggleHolderInline:hover {
+  border: none !important;
+  background: rgba(0, 123, 255, 0.06);
+}

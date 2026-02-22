@@ -206,7 +206,7 @@ function rsRenderSelectionsFromYamlProfile() {
 
   const s = String(val).trim();
 
-  // On /profile/item, treat USDA URLs as a single value 
+  // On /profile/item, treat USDA URLs as a single value (don't split by commas)
   if (typeof isProfileItemPage === 'function' && isProfileItemPage()) {
     if (currentPath === 'features.path' || currentPath === 'targets.path') {
       return s ? [s] : [];
@@ -225,28 +225,12 @@ function rsRenderSelectionsFromYamlProfile() {
   const createCard = (label, role) => {
     if (!window.rsCreateRowCard) return null;
     const roleLabel = role === 'features' ? 'Features' : 'Targets';
-   let displayLabel = label;
-let fullPath = label;
-
-const cached = window.profileItemCache || {};
-const country = cached.lastCountry ? `(${cached.lastCountry})` : "";
-const q = cached.lastFoodQuery ? cached.lastFoodQuery : "";
-
-const isUrl = /^https?:\/\//i.test(String(label || ""));
-
-// Only prettify on /profile/item for USDA feature URLs
-if (typeof isProfileItemPage === "function" && isProfileItemPage()) {
-  if (role === "features" && isUrl) {
-    displayLabel = q ? `USDA search: ${q} ${country}`.trim() : `USDA API ${country}`.trim();
-  }
-}
-
-return window.rsCreateRowCard({
-  item: { label: displayLabel, dcid: label, fullPath: fullPath },
-  role,
-  roleLabel,
+    return window.rsCreateRowCard({
+      item: { label, dcid: label },
+      role,
+      roleLabel,
       onAdd: () => {
-  // /profile/item: "Add Features" should trigger another USDA search 
+  // /profile/item: "Add Features" should trigger another USDA search (row set)
   if (typeof isProfileItemPage === 'function' && isProfileItemPage()) {
     if (role === 'features' && typeof window.rsMenuInsightsAddFeatures === 'function') {
       window.rsMenuInsightsAddFeatures();
@@ -794,12 +778,13 @@ function rsCreateRowCard(options) {
 
   const title = document.createElement('div');
   title.className = 'rsCardTitle';
- const rawTitle = (item && (item.label || item.dcid)) || '';
+  const rawTitle = (item && (item.label || item.dcid)) || '';
 const linkUrl = (item && (item.fullPath || item.href)) || '';
 
-const url = rsLooksLikeUrl(linkUrl) ? linkUrl : (rsLooksLikeUrl(rawTitle) ? rawTitle : '');
-if (url) {
-  const shortText = rsTruncate(rawTitle, 50); // truncate the TITLE, not the URL
+if (rsLooksLikeUrl(linkUrl) || rsLooksLikeUrl(rawTitle)) {
+  const url = rsLooksLikeUrl(linkUrl) ? linkUrl : rawTitle;
+  const shortText = rsTruncate(url, 50);
+
   title.innerHTML = `<a href="${url}" target="_blank" rel="noopener noreferrer" title="${url}">${shortText}</a>`;
 } else {
   title.textContent = rawTitle;
