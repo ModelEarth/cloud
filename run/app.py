@@ -1,5 +1,6 @@
 from dotenv import load_dotenv
-load_dotenv()
+import os
+load_dotenv(os.path.join(os.path.dirname(__file__), '..', '..', 'docker', '.env'))
 
 import os
 from flask import Flask, send_from_directory, render_template, jsonify

@@ -3,15 +3,6 @@
 Setup Google Cloud Run service with Flask for a Jupyter notebook and GitHub.  
 [View Python](https://github.com/ModelEarth/cloud/tree/main/run) and [Resulting Deployment](https://notebook-executor-207223955365.us-central1.run.app)
 
-**Choose your deployment target:**
-<div style="margin: 10px 0;">
-  <input type="radio" id="localdev" name="deployment" value="local" checked>
-  <label for="localdev">Local Dev</label>
-  
-  <input type="radio" id="clouddev" name="deployment" value="cloud" style="margin-left: 15px;">
-  <label for="clouddev">Cloud Deployment</label>
-</div>
-
 ## Setup Webroot
 
 <span class="num">1</span> **[Setup Webroot](https://model.earth/webroot/)** - The "cloud", "chat", "docker" and "data-pipeline" repos ares included as submodules.

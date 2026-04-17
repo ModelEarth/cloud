@@ -1,3 +1,10 @@
+# Run on localhost
+
+local:
+  notebook: "/realitystream/models/Run-Models-bkup.ipynb"
+  simplenotebook: "/cloud/run/notebook.ipynb"
+  python: "/realitystream/models/Run-Models-bkup.py"
+
 # Google Cloud Configuration for automated deployment
 # This file contains default responses for gcloud init and setup commands
 

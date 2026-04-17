@@ -58,6 +58,7 @@ loadMarkdown("README.md", "readmeDiv", "_parent", 1, function() {
             flaskBucket.style.display = 'none';
             const showBtn = document.createElement('button');
             showBtn.textContent = 'Show Manual Code';
+            showBtn.className = 'btn';
             showBtn.style.cssText = 'margin:8px 0;padding:5px 12px;cursor:pointer;';
             showBtn.addEventListener('click', function() {
                 const hidden = flaskBucket.style.display === 'none';
@@ -76,6 +77,7 @@ loadMarkdown("README.md", "readmeDiv", "_parent", 1, function() {
             manualBucket.style.display = 'none';
             const cloudBtn = document.createElement('button');
             cloudBtn.textContent = 'Manual Google Cloud';
+            cloudBtn.className = 'btn';
             cloudBtn.style.cssText = 'margin:8px 0;padding:5px 12px;cursor:pointer;display:none;';
             cloudBtn.addEventListener('click', function() {
                 const hidden = manualBucket.style.display === 'none';
@@ -86,118 +88,136 @@ loadMarkdown("README.md", "readmeDiv", "_parent", 1, function() {
 
             // Wire visibility of cloudBtn to the clouddev radio
             function syncCloudBtn() {
-                const isCloud = document.getElementById('clouddev') && document.getElementById('clouddev').checked;
+                const toggle = document.getElementById('deployToggle');
+                const isCloud = toggle && toggle.checked;
                 cloudBtn.style.display = isCloud ? 'inline-block' : 'none';
                 if (!isCloud) {
                     manualBucket.style.display = 'none';
                     cloudBtn.textContent = 'Manual Google Cloud';
                 }
             }
-            document.addEventListener('change', function(e) {
-                if (e.target.name === 'deployment') syncCloudBtn();
-            });
+            document.getElementById('deployToggle').addEventListener('change', syncCloudBtn);
             syncCloudBtn();
         }
     }
 
-    // Initialize radio button functionality after markdown loads
-    const localRadio = document.getElementById('localdev');
-    const cloudRadio = document.getElementById('clouddev');
+    // Initialize toggle functionality after markdown loads
+    const deployToggle = document.getElementById('deployToggle');
     const localSpans = document.querySelectorAll('.localdev');
     const cloudSpans = document.querySelectorAll('.clouddev');
-    
-    // Restore saved choice or default to local
-    const savedChoice = localStorage.getItem('deploymentChoice') || 'local';
-    if (savedChoice === 'cloud') {
-        cloudRadio.checked = true;
-        localRadio.checked = false;
-    } else {
-        localRadio.checked = true;
-        cloudRadio.checked = false;
-    }
-    
-    // Show/hide content based on selection
+
     function toggleContent() {
-        const isLocal = localRadio.checked;
-        localSpans.forEach(span => span.style.display = isLocal ? 'block' : 'none');
-        cloudSpans.forEach(span => span.style.display = isLocal ? 'none' : 'block');
-        
-        // Save choice
-        localStorage.setItem('deploymentChoice', isLocal ? 'local' : 'cloud');
+        const isCloud = deployToggle.checked;
+        localSpans.forEach(el => el.style.display = isCloud ? 'none' : (el.classList.contains('run-target-option') ? 'flex' : 'block'));
+        cloudSpans.forEach(el => el.style.display = isCloud ? (el.classList.contains('run-target-option') ? 'flex' : 'block') : 'none');
+        document.getElementById('deployLabelLocal').style.opacity = isCloud ? '0.4' : '1';
+        document.getElementById('deployLabelCloud').style.opacity = isCloud ? '1' : '0.4';
+        localStorage.setItem('deploymentChoice', isCloud ? 'cloud' : 'local');
     }
-    
-    // Initial toggle
+
+    // Restore saved choice
+    deployToggle.checked = (localStorage.getItem('deploymentChoice') === 'cloud');
     toggleContent();
-    
-    // Add event listeners
-    localRadio.addEventListener('change', toggleContent);
-    cloudRadio.addEventListener('change', toggleContent);
+    deployToggle.addEventListener('change', toggleContent);
 });
 </script>
 
 </head>
 
 <body>
-<div class="content contentpadding large-list" style="max-width: 1800px;">
-  <div id="commonSetupDiv"></div>
-  <div id="readmeDiv"></div>
-  <h3>Python Execution Options</h3>
-
-<label>
-  <input type="radio" name="execution" id="simplePython" value="simple"> Simple python
-</label><br>
-<label>
-  <input type="radio" name="execution" id="notebookPython" value="notebook"> Run-Models-bkup.ipynb python
-</label>
-
-<div id="executionInstructions" style="margin-top:10px; font-style:italic;">
-  Please select an option above.
-</div>
-</div>
-<script>
-  const simplePython = document.getElementById('simplePython');
-  const notebookPython = document.getElementById('notebookPython');
-  const execInstructions = document.getElementById('executionInstructions');
-
-  function updateInstructions() {
-    if (simplePython.checked) {
-      execInstructions.innerHTML = "Instructions for running Simple python.";
-    } else if (notebookPython.checked) {
-      execInstructions.innerHTML = "Instructions for running Run-Models-bkup.ipynb python.";
-    }
-  }
-
-  simplePython.addEventListener('change', updateInstructions);
-  notebookPython.addEventListener('change', updateInstructions);
-</script>
-
 <div class="content contentpadding">
 
-  <div id="formInfo">
-    <a href="../../../team/admin/cloud/" style="float:right">Cloud Integration</a>
-    <a href="../">Cloud Run Intro</a>
-    <h1>Google Cloud Run Configuration</h1>
+<a href="../../../team/admin/cloud/">Cloud Integration</a> &nbsp; <a href="../">Cloud Run Intro</a><br>
 
-    <div id="serverStatus" class="status error" style="display: block; margin-bottom: 20px;">
-        <strong>⚠️ Flask server not running - configuration cannot be saved</strong><br>
-        <a href="../" style="color: #721c24; text-decoration: underline;">See setup instructions</a>
+<h1>RealityStream</h1>
+
+<div id="pageColumns">
+
+  <div id="formInfo">
+
+    <div id="serverStatus" class="status" style="margin-bottom: 20px;"></div>
+
+    <div id="runTargetConfig" class="section">
+        <h2 style="display:flex;align-items:center;">Run Target
+            <span style="display:flex;align-items:center;gap:6px;font-size:15px;font-weight:normal;margin-left:auto;">
+                <span id="deployLabelLocal" style="opacity:1;">local</span>
+                <label class="deploy-toggle" for="deployToggle" style="margin-bottom:0;cursor:pointer;">
+                    <input type="checkbox" id="deployToggle" style="display:none;">
+                    <span class="deploy-slider"></span>
+                </label>
+                <span id="deployLabelCloud" style="opacity:0.4;">cloud</span>
+            </span>
+        </h2>
+        <div class="run-target-option clouddev">
+            <input type="radio" name="runTarget" id="notebook">
+            <label for="notebook"><span class="run-target-path" id="notebookDisplay">/realitystream/models/Run-Models-bkup.ipynb</span><input type="text" class="run-target-input" id="notebookInput"></label>
+            <button type="button" class="btn edit-target-btn" data-id="notebook" data-key="local.notebook" style="padding:4px 10px;font-size:13px;margin:0;">Edit</button>
+        </div>
+        <div class="run-target-option">
+            <input type="radio" name="runTarget" id="pythonPath" checked>
+            <label for="pythonPath"><span class="run-target-path" id="pythonPathDisplay">/realitystream/models/Run-Models-bkup.py</span><input type="text" class="run-target-input" id="pythonPathInput"></label>
+            <button type="button" class="btn edit-target-btn" data-id="pythonPath" data-key="local.python" style="padding:4px 10px;font-size:13px;margin:0;">Edit</button>
+        </div>
+        <div class="run-target-option">
+            <input type="radio" name="runTarget" id="simpleNotebook">
+            <label for="simpleNotebook"><span class="run-target-path" id="simpleNotebookDisplay">/cloud/run/notebook.ipynb</span><input type="text" class="run-target-input" id="simpleNotebookInput"></label>
+            <button type="button" class="btn edit-target-btn" data-id="simpleNotebook" data-key="local.simplenotebook" style="padding:4px 10px;font-size:13px;margin:0;">Edit</button>
+        </div>
     </div>
+
+
+    <!-- readme -->
+    <button id="runModels" class="btn run-button btn-success" type="button" style="margin:0;white-space:nowrap;"><span aria-hidden="true" style="font-size:14px;margin-right:6px;">&#9654;</span>Run Models</button>
+    <div id="runModelsStatus"></div>
+
+    <pre id="runOutputStream" style="display:none;padding:10px 14px;background:#1e1e1e;color:#d4d4d4;font-size:12px;line-height:1.5;border-radius:6px;max-height:300px;overflow-y:auto;white-space:pre-wrap;word-break:break-word;"></pre>
+
+
+      <div id="commonSetupDiv"></div>
+      <div id="readmeDiv"></div>
+      <h3>Python Execution Options</h3>
+
+    <label>
+      <input type="radio" name="execution" id="simplePython" value="simple"> Simple python
+    </label><br>
+    <label>
+      <input type="radio" name="execution" id="notebookPython" value="notebook"> Run-Models-bkup.ipynb python
+    </label>
+
+    <div id="executionInstructions" style="margin-top:10px; font-style:italic;">
+      Please select an option above.
+    </div>
+
+
+    <script>
+      const simplePython = document.getElementById('simplePython');
+      const notebookPython = document.getElementById('notebookPython');
+      const execInstructions = document.getElementById('executionInstructions');
+
+      function updateInstructions() {
+        if (simplePython.checked) {
+          execInstructions.innerHTML = "Instructions for running Simple python.";
+        } else if (notebookPython.checked) {
+          execInstructions.innerHTML = "Instructions for running Run-Models-bkup.ipynb python.";
+        }
+      }
+
+      simplePython.addEventListener('change', updateInstructions);
+      notebookPython.addEventListener('change', updateInstructions);
+    </script>
+    <!-- /readme -->
   </div>
 
 
 <!---------------------------->
   <style>
+
     /* card effect */
     .container {
         background: white;
         padding: 30px;
         border-radius: 8px;
         box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-    }
-    h1 {
-        color: #333;
-        text-align: center;
-        margin-bottom: 30px;
     }
     .section {
         margin-bottom: 25px;
@@ -212,10 +232,8 @@ loadMarkdown("README.md", "readmeDiv", "_parent", 1, function() {
         margin-bottom: 15px;
     }
     label {
-        display: block;
         margin-bottom: 5px;
         font-weight: 500;
-        color: #555;
     }
     input[type="text"], input[type="url"], select {
         width: 100%;
@@ -230,30 +248,12 @@ loadMarkdown("README.md", "readmeDiv", "_parent", 1, function() {
         border-color: #4285f4;
         box-shadow: 0 0 5px rgba(66, 133, 244, 0.3);
     }
-    .button-group {
-        text-align: center;
-        margin: 30px 0;
+    .dark input[type="text"], input[type="url"], select {
+      background: #555;
+      color: #eee;
+      border: none;
     }
-    button {
-        background: #4285f4;
-        color: white;
-        border: none;
-        padding: 12px 25px;
-        border-radius: 4px;
-        cursor: pointer;
-        font-size: 16px;
-        margin: 0 10px 10px 10px;
-        transition: background-color 0.3s;
-    }
-    button:hover {
-        background: #3367d6;
-    }
-    .run-button {
-        background: #34a853;
-    }
-    .run-button:hover {
-        background: #2d8f40;
-    }
+
     .status {
         margin-top: 20px;
         padding: 10px;
@@ -272,7 +272,6 @@ loadMarkdown("README.md", "readmeDiv", "_parent", 1, function() {
     }
     .help-text {
         font-size: 12px;
-        color: #666;
         margin-top: 5px;
     }
     .current-site {
@@ -289,6 +288,42 @@ loadMarkdown("README.md", "readmeDiv", "_parent", 1, function() {
     }
     .current-site a:hover {
         text-decoration: underline;
+    }
+    #pageColumns {
+        display: flex;
+        gap: 24px;
+        align-items: flex-start;
+    }
+    #formInfo { flex: 3; min-width: 0; }
+    #configFormHolder { flex: 2; min-width: 0; }
+    .run-target-option {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin: 6px 0;
+    }
+    .run-target-option label {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-weight: normal;
+        cursor: pointer;
+        flex: 1;
+        margin-bottom: 0;
+    }
+    .run-target-path { font-family: monospace; font-size: 13px; }
+    .deploy-toggle { display:inline-block; width:36px; height:20px; position:relative; vertical-align:middle; }
+    .deploy-slider { position:absolute; inset:0; background:#e8832a; border-radius:20px; transition:.2s; }
+    .deploy-slider:before { content:''; position:absolute; width:14px; height:14px; left:3px; top:3px; background:#fff; border-radius:50%; transition:.2s; }
+    #deployToggle:checked + .deploy-slider { background:#4285f4; }
+    #deployToggle:checked + .deploy-slider:before { transform:translateX(16px); }
+    .run-target-input {
+        display: none;
+        flex: 1;
+        padding: 4px 8px;
+        font-size: 13px;
+        border: 1px solid #4285f4;
+        border-radius: 3px;
     }
   </style>
 
@@ -333,11 +368,6 @@ loadMarkdown("README.md", "readmeDiv", "_parent", 1, function() {
               <input type="text" id="notebookPath" name="notebookPath" value="run/notebook.ipynb">
               <div class="help-text">Path to the notebook file in the source repository</div>
           </div>
-          <div class="form-group">
-              <label for="githubToken">GitHub Token:</label>
-              <input type="text" id="githubToken" name="githubToken" placeholder="Enter your GitHub personal access token" style="border-left-width:1px !important">
-              <div class="help-text">Fine-grained token with Contents: Read/Write permissions</div>
-          </div>
       </div>
 
       <div class="section">
@@ -354,11 +384,24 @@ loadMarkdown("README.md", "readmeDiv", "_parent", 1, function() {
       </div>
 
       <div class="button-group">
-          <button type="submit">Save Configuration</button>
-          <button type="button" class="run-button" onclick="runNotebook()">Run Notebook</button>
+          <button type="submit" class="btn btn-med btn-control">Update config.yaml</button>
+          <button type="button" class="btn-secondary btn-med btn-control" onclick="runNotebook()">Refresh Google Cloud</button>
+      </div>
+
+      <div class="section" style="margin-top:20px;">
+          <h2>docker/.env Credentials</h2>
+          <div class="form-group">
+              <label for="githubToken">GitHub Token:</label>
+              <input type="text" id="githubToken" name="githubToken" placeholder="GITHUB_REPORTS_TOKEN value from docker/.env">
+              <div class="help-text">Stored in docker/.env — never committed to git. Fine-grained token with Contents: Read/Write permissions.</div>
+          </div>
+          <div class="button-group" style="margin:10px 0 0;">
+              <button type="button" class="btn btn-med btn-control" onclick="updateEnv()">Update .env</button>
+          </div>
       </div>
   </form>
   </div>
+</div><!-- pageColumns -->
 
   <div id="status" class="status"></div>
 </div>
@@ -377,7 +420,7 @@ loadMarkdown("README.md", "readmeDiv", "_parent", 1, function() {
           config[key] = value;
       }
 
-      fetch('/save-config', {
+      fetch('http://localhost:8100/save-config', {
           method: 'POST',
           headers: {
               'Content-Type': 'application/json',
@@ -423,6 +466,19 @@ loadMarkdown("README.md", "readmeDiv", "_parent", 1, function() {
       showStatus(message, 'success', true); // true = keep visible
   }
 
+  function updateEnv() {
+      const token = document.getElementById('githubToken').value.trim();
+      if (!token) { showStatus('Enter a GitHub token first.', 'error'); return; }
+      fetch('http://localhost:8100/update-env', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({GITHUB_REPORTS_TOKEN: token})
+      })
+      .then(r => r.json())
+      .then(data => showStatus(data.message || 'docker/.env updated.', data.status === 'success' ? 'success' : 'error'))
+      .catch(() => showStatus('Flask not reachable — start the server first.', 'error'));
+  }
+
   function runNotebook() {
       showStatus('Running notebook...', 'success');
       
@@ -451,6 +507,121 @@ loadMarkdown("README.md", "readmeDiv", "_parent", 1, function() {
       }
   }
 
+  // Load run target paths: localStorage > config.yaml local node > hardcoded defaults
+  const runTargets = [
+      { id: 'notebook',       key: 'local.notebook',       yamlKey: 'notebook',       def: '/realitystream/models/Run-Models-bkup.ipynb' },
+      { id: 'pythonPath',     key: 'local.python',         yamlKey: 'python',         def: '/realitystream/models/Run-Models-bkup.py' },
+      { id: 'simpleNotebook', key: 'local.simplenotebook', yamlKey: 'simplenotebook', def: '/cloud/run/notebook.ipynb' }
+  ];
+  function applyRunTargets(yamlLocal) {
+      runTargets.forEach(function(t) {
+          const val = localStorage.getItem(t.key) || (yamlLocal && yamlLocal[t.yamlKey]) || t.def;
+          document.getElementById(t.id + 'Display').textContent = val;
+          document.getElementById(t.id + 'Input').value = val;
+      });
+  }
+  fetch('config.yaml')
+      .then(r => r.text())
+      .then(text => {
+          // Parse a named block (e.g. "local:") into a flat key/value object
+          function parseBlock(blockName) {
+              const m = text.match(new RegExp('^' + blockName + ':\\s*\\n((?:[ \\t]+\\S.*\\n?)*)', 'm'));
+              const obj = {};
+              if (m) m[1].replace(/^[ \t]+(\w+):\s*["']?([^"'\n]+)["']?/gm, (_, k, v) => { obj[k] = v.trim(); });
+              return obj;
+          }
+          applyRunTargets(parseBlock('local'));
+
+          // Populate config form fields from config.yaml (no Flask token needed)
+          const proj    = parseBlock('project');
+          const github  = parseBlock('github');
+          const service = parseBlock('service');
+          if (proj.id)                document.getElementById('projectId').value    = proj.id;
+          if (proj.name)              document.getElementById('projectName').value  = proj.name;
+          if (proj.region)            document.getElementById('region').value       = proj.region;
+          if (github.source_repo_url) document.getElementById('sourceRepo').value  = github.source_repo_url;
+          if (github.target_repo)     document.getElementById('targetRepo').value   = github.target_repo;
+          if (github.notebook_path)   document.getElementById('notebookPath').value = github.notebook_path;
+          if (service.name)           document.getElementById('serviceName').value  = service.name;
+      })
+      .catch(() => applyRunTargets(null));
+
+  // Edit/Save toggle for run target paths
+  document.querySelectorAll('.edit-target-btn').forEach(function(btn) {
+      btn.addEventListener('click', function() {
+          const id = btn.dataset.id;
+          const key = btn.dataset.key;
+          const display = document.getElementById(id + 'Display');
+          const input = document.getElementById(id + 'Input');
+          if (btn.textContent === 'Save') {
+              const val = input.value.trim();
+              if (val) { localStorage.setItem(key, val); display.textContent = val; }
+              input.style.display = 'none';
+              display.style.display = '';
+              btn.textContent = 'Edit';
+          } else {
+              input.value = display.textContent;
+              display.style.display = 'none';
+              input.style.display = 'inline-block';
+              input.focus();
+              btn.textContent = 'Save';
+          }
+      });
+  });
+
+  // Run Models button — streams output from Flask /run-local-stream
+  document.getElementById('runModels').addEventListener('click', async function() {
+      const selected = document.querySelector('input[name="runTarget"]:checked');
+      if (!selected) return;
+      const path = document.getElementById(selected.id + 'Display').textContent;
+      const statusEl = document.getElementById('runModelsStatus');
+      const outputEl = document.getElementById('runOutputStream');
+
+      function setStatus(msg, type) {
+          statusEl.className = type ? 'alert alert-' + type : '';
+          statusEl.textContent = msg;
+      }
+
+      // Derive webroot-relative prefix by counting path segments from current URL
+      const segments = window.location.pathname.replace(/\/$/, '').split('/').filter(Boolean);
+      const prefix = segments.map(() => '..').join('/') + '/';
+      const localPath = prefix + path.replace(/^\//, '');
+
+      setStatus('Checking file...', 'info');
+      try {
+          const headRes = await fetch(localPath, {method: 'HEAD'});
+          if (!headRes.ok) { setStatus('File not found: ' + localPath, 'danger'); return; }
+      } catch(e) { setStatus('File not found: ' + localPath, 'danger'); return; }
+
+      setStatus('Running...', 'info');
+      outputEl.textContent = '';
+      outputEl.style.display = 'block';
+
+      try {
+          const res = await fetch('http://localhost:8100/run-local-stream', {
+              method: 'POST',
+              headers: {'Content-Type': 'application/json'},
+              body: JSON.stringify({notebook_path: path})
+          });
+          const reader = res.body.getReader();
+          const decoder = new TextDecoder();
+          let exitCode = null;
+          while (true) {
+              const {done, value} = await reader.read();
+              if (done) break;
+              const chunk = decoder.decode(value, {stream: true});
+              const exitMatch = chunk.match(/\[EXIT:(\d+)\]/);
+              if (exitMatch) { exitCode = parseInt(exitMatch[1]); }
+              outputEl.textContent += chunk.replace(/\[EXIT:\d+\]\n?/, '');
+              outputEl.scrollTop = outputEl.scrollHeight;
+          }
+          setStatus(exitCode === 0 ? '✓ Complete: ' + localPath : 'Exited with code ' + exitCode + ' — ' + localPath,
+                    exitCode === 0 ? 'success' : 'danger');
+      } catch(e) {
+          setStatus('Flask not reachable on port 8100 — attempted: ' + path, 'warning');
+      }
+  });
+
   // Check Flask server status on page load
   fetch('http://localhost:8100/health')
       .then(r => r.json())
@@ -463,33 +634,6 @@ loadMarkdown("README.md", "readmeDiv", "_parent", 1, function() {
       })
       .catch(() => {}); // keep default error message if unreachable
 
-  // Load current configuration on page load
-  window.addEventListener('load', function() {
-      fetch('/get-config')
-      .then(response => response.json())
-      .then(data => {
-          if (data.status === 'success') {
-              const config = data.config;
-              // Populate form fields with current configuration
-              if (config.project) {
-                  document.getElementById('projectId').value = config.project.id || '';
-                  document.getElementById('projectName').value = config.project.name || '';
-                  document.getElementById('region').value = config.project.region || 'us-central1';
-              }
-              if (config.github) {
-                  document.getElementById('sourceRepo').value = config.github.source_repo_url || '';
-                  document.getElementById('targetRepo').value = config.github.target_repo || '';
-                  document.getElementById('notebookPath').value = config.github.notebook_path || '';
-              }
-              if (config.service) {
-                  document.getElementById('serviceName').value = config.service.name || '';
-              }
-          }
-      })
-      .catch(error => {
-          console.error('Error loading configuration:', error);
-      });
-  });
 </script>
 
 </body>

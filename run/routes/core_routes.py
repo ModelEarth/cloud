@@ -4,7 +4,6 @@ from utils.config_utils import load_config, save_config
 from utils.github_utils import get_github_token
 from utils.notebook_utils import SOURCE_REPO_URL, TARGET_REPO, NOTEBOOK_PATH, NOTEBOOK_EXECUTION_AVAILABLE
 import nbformat
-import yaml
 import os
 import sys
 import json
@@ -85,9 +84,8 @@ def save_config_route():
                 config['service'] = {}
             config['service']['name'] = data['serviceName']
 
-        # Save updated configuration
-        with open('config.yaml', 'w') as f:
-            yaml.dump(config, f, default_flow_style=False)
+        # Save updated configuration to the repo-local config path.
+        save_config(config)
 
         # Configuration is saved to file, will be reloaded on next request
         # Note: In production, you might want to implement proper config reloading
@@ -101,6 +99,42 @@ def save_config_route():
             'status': 'error',
             'message': str(e)
         }), 500
+
+@core_blueprint.route('/update-env', methods=['POST'])
+def update_env():
+    """Write key/value pairs to docker/.env without touching unrelated lines."""
+    try:
+        updates = request.get_json(force=True, silent=True) or {}
+        if not updates:
+            return jsonify({'status': 'error', 'message': 'No values provided'}), 400
+
+        webroot = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..'))
+        env_path = os.path.join(webroot, 'docker', '.env')
+
+        # Read existing lines
+        lines = []
+        if os.path.exists(env_path):
+            with open(env_path, 'r') as f:
+                lines = f.readlines()
+
+        # Update or append each key
+        for key, value in updates.items():
+            key = key.strip()
+            updated = False
+            for i, line in enumerate(lines):
+                if line.startswith(key + '=') or line.startswith(key + ' ='):
+                    lines[i] = f'{key}={value}\n'
+                    updated = True
+                    break
+            if not updated:
+                lines.append(f'{key}={value}\n')
+
+        with open(env_path, 'w') as f:
+            f.writelines(lines)
+
+        return jsonify({'status': 'success', 'message': f'docker/.env updated ({", ".join(updates.keys())})'})
+    except Exception as e:
+        return jsonify({'status': 'error', 'message': str(e)}), 500
 
 @core_blueprint.route('/status')
 def status():

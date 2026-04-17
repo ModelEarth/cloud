@@ -1,7 +1,7 @@
 import os
 import json
-import yaml
 from flask import Flask, render_template, request, jsonify
+from utils.config_utils import load_config as load_app_config, save_config as save_app_config
 
 # Load environment variables from .env file for local development
 try:
@@ -13,23 +13,7 @@ except ImportError:
 
 app = Flask(__name__)
 
-# Load configuration from config.yaml
-def load_config():
-    try:
-        with open('config.yaml', 'r') as f:
-            config = yaml.safe_load(f)
-        return config
-    except FileNotFoundError:
-        # Fallback configuration if config.yaml doesn't exist
-        return {
-            'github': {
-                'source_repo_url': 'https://github.com/modelearth/cloud.git',
-                'target_repo': 'https://github.com/modelearth/reports.git',
-                'notebook_path': 'run/notebook.ipynb'
-            }
-        }
-
-config = load_config()
+config = load_app_config()
 
 @app.route('/')
 def home():
@@ -44,7 +28,7 @@ def config_page():
 @app.route('/get-config', methods=['GET'])
 def get_config():
     try:
-        config = load_config()
+        config = load_app_config()
         return jsonify({
             'status': 'success',
             'config': config
@@ -59,7 +43,7 @@ def get_config():
 def save_config():
     try:
         data = request.json
-        config = load_config()
+        config = load_app_config()
         
         # Update configuration with form data
         if 'projectId' in data:
@@ -91,9 +75,8 @@ def save_config():
                 config['service'] = {}
             config['service']['name'] = data['serviceName']
         
-        # Save updated configuration
-        with open('config.yaml', 'w') as f:
-            yaml.dump(config, f, default_flow_style=False)
+        # Save updated configuration to the repo-local config path.
+        save_app_config(config)
         
         return jsonify({
             'status': 'success',
