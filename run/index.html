@@ -10,6 +10,9 @@
 <link type="text/css" rel="stylesheet" href="../../localsite/css/base.css" id="/localsite/css/base.css" />
 <script type="text/javascript" src="../../localsite/js/localsite.js?showheader=true&showsearch=true"></script>
 
+<script src="https://cdn.jsdelivr.net/npm/js-yaml@4/dist/js-yaml.min.js"></script>
+<script src="js/param-input.js"></script>
+
 <style>
 @media (max-width: 1000px) {
     #issuesWidget {
@@ -127,7 +130,7 @@ loadMarkdown("README.md", "readmeDiv", "_parent", 1, function() {
 <body>
 <div class="content contentpadding">
 
-<a href="../../../team/admin/cloud/">Cloud Integration</a> &nbsp; <a href="../">Cloud Run Intro</a><br>
+<a href="../../team/setup">Manage Webroot</a> - <a href="../../realitystream/models/">Six Models</a>
 
 <h1>RealityStream</h1>
 
@@ -167,7 +170,7 @@ loadMarkdown("README.md", "readmeDiv", "_parent", 1, function() {
 
 
     <!-- readme -->
-    <button id="runModels" class="btn run-button btn-success" type="button" style="margin:0;white-space:nowrap;"><span aria-hidden="true" style="font-size:14px;margin-right:6px;">&#9654;</span>Run Models</button>
+    <button id="runModels" class="btn run-button btn-success" type="button" style="margin:0;white-space:nowrap;"><span aria-hidden="true" style="font-size:14px;margin-right:6px;">&#9654;</span>Run Models</button><button id="stopModels" class="btn btn-med btn-control" type="button" style="display:none;margin:0 0 0 6px;white-space:nowrap;">&#9632; Stop</button>
     <div id="runModelsStatus"></div>
 
     <pre id="runOutputStream" style="display:none;padding:10px 14px;background:#1e1e1e;color:#d4d4d4;font-size:12px;line-height:1.5;border-radius:6px;max-height:300px;overflow-y:auto;white-space:pre-wrap;word-break:break-word;"></pre>
@@ -569,8 +572,21 @@ loadMarkdown("README.md", "readmeDiv", "_parent", 1, function() {
       });
   });
 
-  // Run Models button — streams output from Flask /run-local-stream
-  document.getElementById('runModels').addEventListener('click', async function() {
+  // Run Models / Stop button logic
+  let _runAbortController = null;
+  const runBtn  = document.getElementById('runModels');
+  const stopBtn = document.getElementById('stopModels');
+
+  function setRunning(running) {
+      runBtn.disabled  = running;
+      stopBtn.style.display = running ? 'inline-block' : 'none';
+  }
+
+  stopBtn.addEventListener('click', function() {
+      if (_runAbortController) _runAbortController.abort();
+  });
+
+  runBtn.addEventListener('click', async function() {
       const selected = document.querySelector('input[name="runTarget"]:checked');
       if (!selected) return;
       const path = document.getElementById(selected.id + 'Display').textContent;
@@ -582,7 +598,6 @@ loadMarkdown("README.md", "readmeDiv", "_parent", 1, function() {
           statusEl.textContent = msg;
       }
 
-      // Derive webroot-relative prefix by counting path segments from current URL
       const segments = window.location.pathname.replace(/\/$/, '').split('/').filter(Boolean);
       const prefix = segments.map(() => '..').join('/') + '/';
       const localPath = prefix + path.replace(/^\//, '');
@@ -596,12 +611,15 @@ loadMarkdown("README.md", "readmeDiv", "_parent", 1, function() {
       setStatus('Running...', 'info');
       outputEl.textContent = '';
       outputEl.style.display = 'block';
+      setRunning(true);
 
+      _runAbortController = new AbortController();
       try {
           const res = await fetch('http://localhost:8100/run-local-stream', {
               method: 'POST',
               headers: {'Content-Type': 'application/json'},
-              body: JSON.stringify({notebook_path: path})
+              body: JSON.stringify({notebook_path: path}),
+              signal: _runAbortController.signal
           });
           const reader = res.body.getReader();
           const decoder = new TextDecoder();
@@ -618,7 +636,14 @@ loadMarkdown("README.md", "readmeDiv", "_parent", 1, function() {
           setStatus(exitCode === 0 ? '✓ Complete: ' + localPath : 'Exited with code ' + exitCode + ' — ' + localPath,
                     exitCode === 0 ? 'success' : 'danger');
       } catch(e) {
-          setStatus('Flask not reachable on port 8100 — attempted: ' + path, 'warning');
+          if (e.name === 'AbortError') {
+              setStatus('Stopped: ' + localPath, 'warning');
+          } else {
+              setStatus('Flask not reachable on port 8100 — attempted: ' + path, 'warning');
+          }
+      } finally {
+          setRunning(false);
+          _runAbortController = null;
       }
   });
 

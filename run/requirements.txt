@@ -19,3 +19,4 @@ pandas
 fpdf
 plotly
 numpy
+regex

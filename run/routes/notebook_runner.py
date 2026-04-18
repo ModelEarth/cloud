@@ -176,10 +176,14 @@ def run_local_stream():
                     stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
                     text=True, env=env, bufsize=1
                 )
-                for line in proc.stdout:
-                    yield line
-                proc.wait()
-                yield f"[EXIT:{proc.returncode}]\n"
+                try:
+                    for line in proc.stdout:
+                        yield line
+                    proc.wait()
+                    yield f"[EXIT:{proc.returncode}]\n"
+                finally:
+                    if proc.poll() is None:
+                        proc.kill()
             finally:
                 os.unlink(tmp_path)
 
