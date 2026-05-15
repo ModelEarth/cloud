@@ -684,6 +684,34 @@ function parseYamlContent() {
     return yamlContent;
 }
 
+function rsUpdateCardMenuLabels(cardId) {
+  const menu = document.getElementById(`${cardId}Menu`);
+  const card = document.getElementById(cardId);
+  if (!menu || !card) return;
+
+  const isExpanded = card.dataset && card.dataset.menuExpanded === 'true';
+  const expandItem = menu.querySelector('[data-action="expand"], [data-action="collapse"]');
+  if (expandItem) {
+    const iconElement = expandItem.querySelector('.material-icons');
+    expandItem.childNodes.forEach((node) => {
+      if (node.nodeType === 3) {
+        node.textContent = isExpanded ? 'Collapse' : 'Expand';
+      }
+    });
+    if (iconElement) iconElement.textContent = isExpanded ? 'close_fullscreen' : 'open_in_full';
+    expandItem.setAttribute('data-action', isExpanded ? 'collapse' : 'expand');
+  }
+
+  const removeItem = menu.querySelector('[data-action="remove"]');
+  if (removeItem) {
+    removeItem.childNodes.forEach((node) => {
+      if (node.nodeType === 3) {
+        node.textContent = 'Remove';
+      }
+    });
+  }
+}
+
 function rsAttachCardMenu(options) {
   const {
     card,
@@ -700,8 +728,8 @@ function rsAttachCardMenu(options) {
     if (document.getElementById(`${card.id}MenuControl`)) return;
 
     const menuItems = [
-      { label: `Expand ${roleLabel}`, action: 'expand', icon: 'open_in_full' },
-      { label: `Remove ${roleLabel}`, action: 'remove', icon: 'visibility_off' },
+      { label: 'Expand', action: 'expand', icon: 'open_in_full' },
+      { label: 'Remove', action: 'remove', icon: 'visibility_off' },
       { divider: true },
       { label: `Add ${roleLabel}`, action: 'add', icon: 'add_circle' }
     ];
@@ -728,6 +756,8 @@ function rsAttachCardMenu(options) {
         return false;
       }
     }).render();
+
+    rsUpdateCardMenuLabels(card.id);
   };
 
   if (typeof addPanelMenu === 'function') {
@@ -757,6 +787,32 @@ function rsLooksLikeUrl(s) {
   return /^https?:\/\//i.test(s);
 }
 
+function rsGetFolderFileLabel(pathValue) {
+  const raw = String(pathValue || "").trim();
+  if (!raw) return "";
+
+  let cleaned = raw;
+  try {
+    if (rsLooksLikeUrl(raw)) {
+      cleaned = new URL(raw).pathname || raw;
+    }
+  } catch (err) {
+    cleaned = raw;
+  }
+
+  cleaned = cleaned.split("?")[0].split("#")[0].replace(/\/+$/, "");
+  const segments = cleaned.split("/").filter(Boolean).map((segment) => {
+    try {
+      return decodeURIComponent(segment);
+    } catch (err) {
+      return segment;
+    }
+  });
+  if (!segments.length) return "";
+  if (segments.length === 1) return segments[0];
+  return `${segments[segments.length - 2]}/${segments[segments.length - 1]}`;
+}
+
 function rsCreateRowCard(options) {
   const {
     item,
@@ -776,24 +832,37 @@ function rsCreateRowCard(options) {
   const header = document.createElement('div');
   header.className = 'rsCardHeader';
 
+  const textWrap = document.createElement('div');
+  textWrap.className = 'rsCardTextWrap';
+
+  const filename = document.createElement('div');
+  filename.className = 'rsCardFilename';
+  const filenameSource = (item && (item.fullPath || item.href)) || '';
+  const folderFileLabel = rsGetFolderFileLabel(filenameSource);
+  if (folderFileLabel) {
+    filename.textContent = folderFileLabel;
+    textWrap.appendChild(filename);
+  }
+
   const title = document.createElement('div');
   title.className = 'rsCardTitle';
   const rawTitle = (item && (item.label || item.dcid)) || '';
-const linkUrl = (item && (item.fullPath || item.href)) || '';
+  const linkUrl = (item && (item.fullPath || item.href)) || '';
 
-if (rsLooksLikeUrl(linkUrl) || rsLooksLikeUrl(rawTitle)) {
-  const url = rsLooksLikeUrl(linkUrl) ? linkUrl : rawTitle;
-  const shortText = rsTruncate(url, 50);
+  if (rsLooksLikeUrl(linkUrl) || rsLooksLikeUrl(rawTitle)) {
+    const url = rsLooksLikeUrl(linkUrl) ? linkUrl : rawTitle;
+    const shortText = rsTruncate(url, 50);
 
-  title.innerHTML = `<a href="${url}" target="_blank" rel="noopener noreferrer" title="${url}">${shortText}</a>`;
-} else {
-  title.textContent = rawTitle;
-}
+    title.innerHTML = `<a href="${url}" target="_blank" rel="noopener noreferrer" title="${url}">${shortText}</a>`;
+  } else {
+    title.textContent = rawTitle;
+  }
+  textWrap.appendChild(title);
 
   const menuWrap = document.createElement('div');
   menuWrap.className = 'rsCardMenuHolder';
 
-  header.appendChild(title);
+  header.appendChild(textWrap);
   header.appendChild(menuWrap);
   card.appendChild(header);
 
@@ -915,9 +984,7 @@ if (rsLooksLikeUrl(linkUrl) || rsLooksLikeUrl(rawTitle)) {
         if (card.dataset) {
           card.dataset.menuExpanded = expanded ? 'true' : 'false';
         }
-        if (typeof updateMenuLabels === 'function') {
-          updateMenuLabels(`${card.id}Menu`, card.id, roleLabel);
-        }
+        rsUpdateCardMenuLabels(card.id);
         if (typeof setPanelToggleIcon === 'function') {
           setPanelToggleIcon(`${card.id}MenuControl`, expanded ? 'arrow_drop_down_circle' : 'arrow_right');
         }
@@ -941,9 +1008,7 @@ if (rsLooksLikeUrl(linkUrl) || rsLooksLikeUrl(rawTitle)) {
     if (card.dataset) {
       card.dataset.menuExpanded = nextExpanded ? 'true' : 'false';
     }
-    if (typeof updateMenuLabels === 'function') {
-      updateMenuLabels(`${card.id}Menu`, card.id, roleLabel);
-    }
+    rsUpdateCardMenuLabels(card.id);
     if (typeof setPanelToggleIcon === 'function') {
       setPanelToggleIcon(`${card.id}MenuControl`, nextExpanded ? 'arrow_drop_down_circle' : 'arrow_right');
     }
