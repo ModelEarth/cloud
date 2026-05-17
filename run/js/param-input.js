@@ -1168,7 +1168,7 @@ function initRunPage() {
     features: {
       data: "industries",
       common: "Fips",
-      path: "https://raw.githubusercontent.com/ModelEarth/community-timelines/main/training/naics6/US/counties/2020/US-ME-training-naics6-counties-2020.csv"
+     path: "https://raw.githubusercontent.com/ModelEarth/community-timelines/main/training/naics{naics}/US/counties/{year}/US-{state}-training-naics{naics}-counties-{year}.csv"
     },
     targets: {
       data: "bees",
@@ -1221,9 +1221,21 @@ function initRunPage() {
     renderSelectionsFromYaml();
   }
 
+if (!safeGetHash().parambase) {
   parseAndRenderFromHash();
-  document.addEventListener('hashChangeEvent', parseAndRenderFromHash);
-  window.addEventListener("hashchange", parseAndRenderFromHash);
+}
+
+document.addEventListener('hashChangeEvent', function () {
+  if (!safeGetHash().parambase) {
+    parseAndRenderFromHash();
+  }
+});
+
+window.addEventListener("hashchange", function () {
+  if (!safeGetHash().parambase) {
+    parseAndRenderFromHash();
+  }
+});
 
   loadBaseParamsSelect();
   if (typeof window.rsRefreshFromYaml !== 'function') {
@@ -1382,8 +1394,15 @@ const targetItems  = parseCsv(targets.path  || targets.dcid  || targets.data);
     const createCard = (label, role) => {
       if (!window.rsCreateRowCard) return null;
       const roleLabel = role === 'features' ? 'Features' : 'Targets';
+
+      const sourcePath = role === 'features'
+    ? (features.path || label)
+    : (targets.path || label);
+
+
       return window.rsCreateRowCard({
-        item: { label, dcid: label },
+        item: { label, dcid: label, fullPath: sourcePath,
+      href: sourcePath },
         role,
         roleLabel,
         onAdd: () => {
