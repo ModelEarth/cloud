@@ -690,18 +690,26 @@ function rsUpdateCardMenuLabels(cardId) {
   if (!menu || !card) return;
 
   const isExpanded = card.dataset && card.dataset.menuExpanded === 'true';
-  const expandItem = menu.querySelector('[data-action="expand"], [data-action="collapse"]');
+  const expandItem = menu.querySelector('[data-action="details"], [data-action="hideDetails"], [data-action="expand"], [data-action="collapse"]');
   if (expandItem) {
     const iconElement = expandItem.querySelector('.material-icons');
     expandItem.childNodes.forEach((node) => {
       if (node.nodeType === 3) {
-        node.textContent = isExpanded ? 'Collapse' : 'Expand';
+        node.textContent = isExpanded ? 'Hide Details' : 'Show Details';
       }
     });
     if (iconElement) iconElement.textContent = isExpanded ? 'close_fullscreen' : 'open_in_full';
-    expandItem.setAttribute('data-action', isExpanded ? 'collapse' : 'expand');
+    expandItem.setAttribute('data-action', isExpanded ? 'hideDetails' : 'details');
   }
-
+const tableItem = menu.querySelector('[data-action="table"]');
+if (tableItem) {
+  const isTableOpen = card.dataset && card.dataset.tableOpen === 'true';
+  tableItem.childNodes.forEach((node) => {
+    if (node.nodeType === 3) {
+      node.textContent = isTableOpen ? 'Hide Table' : 'Show Table';
+    }
+  });
+}
   const removeItem = menu.querySelector('[data-action="remove"]');
   if (removeItem) {
     removeItem.childNodes.forEach((node) => {
@@ -718,7 +726,8 @@ function rsAttachCardMenu(options) {
     roleLabel,
     onAdd,
     onRemove,
-    onExpandToggle
+    onExpandToggle,
+onTableToggle
   } = options;
 
   if (!card || !roleLabel) return;
@@ -728,11 +737,13 @@ function rsAttachCardMenu(options) {
     if (document.getElementById(`${card.id}MenuControl`)) return;
 
     const menuItems = [
-      { label: 'Expand', action: 'expand', icon: 'open_in_full' },
-      { label: 'Remove', action: 'remove', icon: 'visibility_off' },
-      { divider: true },
-      { label: `Add ${roleLabel}`, action: 'add', icon: 'add_circle' }
-    ];
+ { label: 'Show Details', action: 'details', icon: 'open_in_full' },
+  { label: 'Show Table', action: 'table', icon: 'table_chart' },
+  { label: 'Raw Data', action: 'raw', icon: 'open_in_new' },
+  { label: 'Remove', action: 'remove', icon: 'visibility_off' },
+  { divider: true },
+  { label: `Add ${roleLabel}`, action: 'add', icon: 'add_circle' }
+];
 
     addPanelMenu({
       panelType: roleLabel,
@@ -749,10 +760,22 @@ function rsAttachCardMenu(options) {
           onRemove();
           return true;
         }
-        if ((action === 'expand' || action === 'collapse') && typeof onExpandToggle === 'function') {
-          onExpandToggle(action === 'expand');
-          return true;
-        }
+        if ((action === 'details' || action === 'hideDetails') && typeof onExpandToggle === 'function') {
+  const isOpen = card.dataset.menuExpanded === 'true';
+  onExpandToggle(!isOpen);
+  return true;
+}
+
+        if (action === 'raw') {
+  const url = card.dataset.rawUrl;
+  if (url) window.open(url, '_blank');
+  return true;
+}
+
+if (action === 'table' && typeof onTableToggle === 'function') {
+  onTableToggle();
+  return true;
+}
         return false;
       }
     }).render();
@@ -828,6 +851,8 @@ function rsCreateRowCard(options) {
   const card = document.createElement('div');
   card.className = 'rsRowCard';
   card.id = options.cardId || `rsCard_${role}_${Math.random().toString(16).slice(2)}`;
+  card.dataset.rawUrl = (item && (item.fullPath || item.href || item.label || item.dcid)) || '';
+card.dataset.tableOpen = 'false';
 
   const header = document.createElement('div');
   header.className = 'rsCardHeader';
@@ -988,7 +1013,36 @@ function rsCreateRowCard(options) {
         if (typeof setPanelToggleIcon === 'function') {
           setPanelToggleIcon(`${card.id}MenuControl`, expanded ? 'arrow_drop_down_circle' : 'arrow_right');
         }
-      }
+      },
+
+
+      onTableToggle: () => {
+  const csvToPreview = item.previewPath || item.fullPath || item.href || item.label || item.dcid;
+  const tableId = `rsPreviewTable_${card.id}`;
+  const isOpen = card.dataset.tableOpen === 'true';
+
+  if (isOpen) {
+    if (previewWrap) {
+      previewWrap.style.display = 'none';
+      previewWrap.innerHTML = '';
+    }
+    card.dataset.tableOpen = 'false';
+  } else {
+    if (previewWrap && typeof onPreviewInline === 'function') {
+      previewWrap.style.display = 'block';
+      previewWrap.innerHTML = `
+        <div class="rsPreviewMeta">
+          <a href="${csvToPreview}" target="_blank" rel="noopener noreferrer">Raw Data</a>
+        </div>
+        <div id="${tableId}"></div>
+      `;
+      onPreviewInline(csvToPreview, tableId);
+    }
+    card.dataset.tableOpen = 'true';
+  }
+
+  rsUpdateCardMenuLabels(card.id);
+}
     });
   };
 
@@ -1168,7 +1222,7 @@ function initRunPage() {
     features: {
       data: "industries",
       common: "Fips",
-      path: "https://raw.githubusercontent.com/ModelEarth/community-timelines/main/training/naics6/US/counties/2020/US-ME-training-naics6-counties-2020.csv"
+     path: "https://raw.githubusercontent.com/ModelEarth/community-timelines/main/training/naics{naics}/US/counties/{year}/US-{state}-training-naics{naics}-counties-{year}.csv"
     },
     targets: {
       data: "bees",
@@ -1221,9 +1275,21 @@ function initRunPage() {
     renderSelectionsFromYaml();
   }
 
+if (!safeGetHash().parambase) {
   parseAndRenderFromHash();
-  document.addEventListener('hashChangeEvent', parseAndRenderFromHash);
-  window.addEventListener("hashchange", parseAndRenderFromHash);
+}
+
+document.addEventListener('hashChangeEvent', function () {
+  if (!safeGetHash().parambase) {
+    parseAndRenderFromHash();
+  }
+});
+
+window.addEventListener("hashchange", function () {
+  if (!safeGetHash().parambase) {
+    parseAndRenderFromHash();
+  }
+});
 
   loadBaseParamsSelect();
   if (typeof window.rsRefreshFromYaml !== 'function') {
@@ -1379,20 +1445,60 @@ const targetItems  = parseCsv(targets.path  || targets.dcid  || targets.data);
     featuresList.innerHTML = '';
     targetList.innerHTML = '';
 
+    const isProbablyDcidLocal = (v) => {
+  if (!v || typeof v !== 'string') return false;
+  if (v.startsWith('http')) return false;
+  if (v.includes('/')) return true;
+  return /^[A-Za-z][A-Za-z0-9_]+$/.test(v);
+};
+
+const getPathInfoForRole = (role) => {
+  const section = role === 'features' ? features : targets;
+  const fullPath = section.path || '';
+
+  return {
+    fullPath,
+    hasPH: /\{[a-zA-Z0-9_]+\}/.test(fullPath),
+    placeholderPath: fullPath,
+    previewPath: fullPath,
+    pv: null
+  };
+};
+
+
+
     const createCard = (label, role) => {
       if (!window.rsCreateRowCard) return null;
       const roleLabel = role === 'features' ? 'Features' : 'Targets';
+
+      const sourcePath = role === 'features'
+    ? (features.path || label)
+    : (targets.path || label);
+
+
       return window.rsCreateRowCard({
-        item: { label, dcid: label },
+        item: { label, dcid: label, fullPath: sourcePath,
+      href: sourcePath },
         role,
         roleLabel,
+        getPathInfo: getPathInfoForRole,
+isProbablyDcid: isProbablyDcidLocal,
         onAdd: () => {
           if (window.rsOpenAddPopupWithRole) {
             window.rsOpenAddPopupWithRole(role);
           }
         },
         onRemove: () => {},
-        onPreviewInline: () => {}
+        onPreviewInline: (url, tableId) => {
+  if (typeof loadEarthScape === 'function') {
+    loadEarthScape({
+      dataset: url,
+      elementID: tableId
+    });
+  } else {
+    window.open(url, '_blank');
+  }
+}
       });
     };
 
