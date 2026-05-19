@@ -851,8 +851,8 @@ function rsCreateRowCard(options) {
   const card = document.createElement('div');
   card.className = 'rsRowCard';
   card.id = options.cardId || `rsCard_${role}_${Math.random().toString(16).slice(2)}`;
-  card.dataset.rawUrl = (item && (item.fullPath || item.href || item.label || item.dcid)) || '';
-card.dataset.tableOpen = 'false';
+ card.dataset.rawUrl = '';
+  card.dataset.tableOpen = 'false';
 
   const header = document.createElement('div');
   header.className = 'rsCardHeader';
@@ -872,7 +872,7 @@ card.dataset.tableOpen = 'false';
   const title = document.createElement('div');
   title.className = 'rsCardTitle';
   const rawTitle = (item && (item.label || item.dcid)) || '';
-  const linkUrl = (item && (item.fullPath || item.href)) || '';
+  const linkUrl = card.dataset.rawUrl || (item && (item.fullPath || item.href)) || '';
 
   if (rsLooksLikeUrl(linkUrl) || rsLooksLikeUrl(rawTitle)) {
     const url = rsLooksLikeUrl(linkUrl) ? linkUrl : rawTitle;
@@ -912,28 +912,49 @@ card.dataset.tableOpen = 'false';
     const placeholderPath = item.placeholderPath || fromYaml.placeholderPath || '';
     const previewPath = item.previewPath || fromYaml.previewPath || '';
     const pv = item.previewWith || fromYaml.pv || null;
+    const resolvedPath = previewPath || rsFillPlaceholders(fullPath, pv);
+card.dataset.rawUrl = resolvedPath;
+if (resolvedPath && title) {
+  title.innerHTML = `<a href="${resolvedPath}" target="_blank" rel="noopener noreferrer" title="${resolvedPath}">
+    ${rsTruncate(resolvedPath, 50)}
+  </a>`;
+}
+
+if (resolvedPath && filename) {
+  filename.textContent = rsGetFolderFileLabel(resolvedPath);
+}
+    card.dataset.rawUrl = rsFillPlaceholders(previewPath || fullPath || item.href || item.label || item.dcid, pv);
 
     const dcidBlock = (value || link) ? `
       ${value ? `
         <div class="k">${isProbablyDcid(value) ? 'DCID' : 'DATA'}</div>
-        <div class="v">${value}</div>
+        <div class="v">${resolvedPath || value}</div>
       ` : ''}
       ${link ? `
         <div class="k">LINK</div>
         <div class="v">
-          <a href="${link}" target="_blank" rel="noopener noreferrer">${link}</a>
+          <a href="${resolvedPath || link}" target="_blank" rel="noopener noreferrer">${resolvedPath || link}</a>
         </div>
       ` : ''}
     ` : '';
 
-    const csvToPreview = previewPath || fullPath;
+    function rsFillPlaceholders(path, pv) {
+  if (!path) return path;
+
+  return String(path)
+    .replace(/\{year\}/g, pv?.year || '2020')
+    .replace(/\{state\}/g, (pv?.state && String(pv.state).toLowerCase() !== 'all') ? pv.state : 'ME')
+    .replace(/\{naics\}/g, pv?.naics || '6');
+}
+
+const csvToPreview = previewPath || rsFillPlaceholders(fullPath, pv);
     const canPreview = !!csvToPreview && /\.csv(\?|#|$)/i.test(csvToPreview);
 
     const pathBlock = fullPath ? `
       <div class="k">PATH</div>
       <div class="v">
         ${hasPH ? `
-          <div>${placeholderPath}</div>
+         <a href="${resolvedPath}" target="_blank" rel="noopener noreferrer">${resolvedPath}</a>
           ${pv ? `
             <div style="margin-top:10px;">
               <div class="k" style="margin-top:0;">Preview with:</div>
@@ -951,7 +972,7 @@ card.dataset.tableOpen = 'false';
             </div>
           ` : ''}
         ` : `
-          <a href="${fullPath}" target="_blank" rel="noopener noreferrer">${fullPath}</a>
+          <a href="${resolvedPath || fullPath}" target="_blank" rel="noopener noreferrer">${resolvedPath || fullPath}</a>
           ${canPreview ? `
             <div class="k" style="margin-top:10px;">Preview link</div>
             <div class="v">
@@ -1017,8 +1038,8 @@ card.dataset.tableOpen = 'false';
 
 
       onTableToggle: () => {
-  const csvToPreview = item.previewPath || item.fullPath || item.href || item.label || item.dcid;
-  const tableId = `rsPreviewTable_${card.id}`;
+ const csvToPreview = card.dataset.rawUrl || item.previewPath || item.fullPath || item.href || item.label || item.dcid;
+        const tableId = `rsPreviewTable_${card.id}`;
   const isOpen = card.dataset.tableOpen === 'true';
 
   if (isOpen) {
@@ -1452,15 +1473,39 @@ const targetItems  = parseCsv(targets.path  || targets.dcid  || targets.data);
   return /^[A-Za-z][A-Za-z0-9_]+$/.test(v);
 };
 
+const getFirstValue = (value, fallback) => {
+  if (!value) return fallback;
+  if (Array.isArray(value)) return value[0] || fallback;
+
+  return String(value)
+    .split(',')
+    .map(v => v.trim())
+    .filter(Boolean)[0] || fallback;
+};
+
+const fillPlaceholders = (path) => {
+  if (!path) return path;
+
+  const year = getFirstValue(features.years || features.year || yamlObj.years || yamlObj.year, '2021');
+  const state = getFirstValue(features.states || features.state || yamlObj.states || yamlObj.state, 'ME');
+  const naics = getFirstValue(features.naics || features.naicsLevel || yamlObj.naics || yamlObj.naicsLevel, '2');
+
+  return String(path)
+    .replace(/\{year\}/g, year)
+    .replace(/\{state\}/g, state)
+    .replace(/\{naics\}/g, naics);
+};
+
 const getPathInfoForRole = (role) => {
   const section = role === 'features' ? features : targets;
   const fullPath = section.path || '';
+  const previewPath = fillPlaceholders(fullPath);
 
   return {
     fullPath,
     hasPH: /\{[a-zA-Z0-9_]+\}/.test(fullPath),
     placeholderPath: fullPath,
-    previewPath: fullPath,
+    previewPath,
     pv: null
   };
 };
