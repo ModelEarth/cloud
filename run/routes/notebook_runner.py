@@ -104,12 +104,18 @@ def run_local_stream():
     full_path = os.path.join(WEBROOT, notebook_path)
 
     def load_github_token():
-        """Load GitHub token from docker/.env, trying keys in priority order."""
+        """Load GitHub token from env vars or docker/.env, trying keys in priority order."""
         import re
+        priority = ['GITHUB_REPORTS_TOKEN', 'GITHUB_PERSONAL_ACCESS_TOKEN', 'GITHUB_TOKEN']
+        # Check environment variables first
+        for key in priority:
+            val = os.environ.get(key, '').strip()
+            if val and 'placeholder' not in val.lower():
+                return val, key, None
+        # Fall back to docker/.env
         docker_env = os.path.join(WEBROOT, 'docker', '.env')
         if not os.path.exists(docker_env):
-            return None, None, f"docker/.env not found at {docker_env}"
-        priority = ['GITHUB_REPORTS_TOKEN', 'GITHUB_PERSONAL_ACCESS_TOKEN', 'GITHUB_TOKEN']
+            return None, None, None  # no token available; GitHub push will be skipped
         found = {}
         with open(docker_env, 'r') as f:
             for line in f:
@@ -121,7 +127,7 @@ def run_local_stream():
         for key in priority:
             if key in found:
                 return found[key], key, None
-        return None, None, f"No valid GitHub token in docker/.env (checked: {', '.join(priority)})"
+        return None, None, None  # no valid token found; GitHub push will be skipped
 
     def sanitize_tokens(source):
         """Replace hardcoded token literals and [GITHUB_TOKEN] placeholder
@@ -140,12 +146,10 @@ def run_local_stream():
             yield "[EXIT:1]\n"
             return
 
-        # Load GitHub token from docker/.env
-        github_token, token_key, token_err = load_github_token()
-        if token_err:
-            yield f"⚠️  {token_err}\n"
-        else:
-            yield f"✓ GitHub token loaded from docker/.env ({token_key})\n"
+        # Load GitHub token (env vars → docker/.env → none)
+        github_token, token_key, _ = load_github_token()
+        if github_token:
+            yield f"✓ GitHub token loaded ({token_key})\n"
 
         env = os.environ.copy()
         if github_token:
@@ -166,6 +170,28 @@ def run_local_stream():
                 escaped = cmd.replace('\\', '\\\\').replace("'", "\\'")
                 return f"{indent}import subprocess as _bang_sp; _bang_sp.run('{escaped}', shell=True, check=False)"
             cleaned = re.sub(r'^(\s*)!(.+)$', _replace_bang, source, flags=re.MULTILINE)
+
+            # Prepend a google.colab stub so bare top-level colab imports are no-ops locally
+            colab_stub = (
+                "import sys as _sys, types as _types\n"
+                "if 'google.colab' not in _sys.modules:\n"
+                "    _colab = _types.ModuleType('google.colab')\n"
+                "    _colab.ai = _types.SimpleNamespace(list_models=lambda: [], generate_text=lambda **kw: iter([]))\n"
+                "    _colab._message = _types.SimpleNamespace(blocking_request=lambda *a, **kw: {})\n"
+                "    _colab.userdata = _types.SimpleNamespace(get=lambda key, default=None: default)\n"
+                "    _colab.files = _types.SimpleNamespace(download=lambda *a, **kw: None)\n"
+                "    _google = _types.ModuleType('google')\n"
+                "    _google.colab = _colab\n"
+                "    _sys.modules.setdefault('google', _google)\n"
+                "    for _k, _v in [('google.colab', _colab), ('google.colab.ai', _colab.ai),\n"
+                "                   ('google.colab._message', _colab._message),\n"
+                "                   ('google.colab.userdata', _colab.userdata),\n"
+                "                   ('google.colab.files', _colab.files)]:\n"
+                "        _sys.modules[_k] = _v\n"
+                "del _sys, _types\n"
+                "\n"
+            )
+            cleaned = colab_stub + cleaned
 
             with tempfile.NamedTemporaryFile(mode='w', suffix='.py', delete=False, encoding='utf-8') as tmp:
                 tmp.write(cleaned)

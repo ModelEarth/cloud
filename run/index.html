@@ -42,6 +42,7 @@ loadMarkdown("README.md", "readmeDiv", "_parent", 1, function() {
                 if (data.status === 'ok') {
                     statusDiv.style.cssText += 'background:#d4edda;color:#155724;border:1px solid #c3e6cb;';
                     statusDiv.innerHTML = '<strong>✅ Flask server running on port 8100</strong> - <a href="start" style="color:#155724;">Configure</a>';
+                    targetEl.style.display = 'none';
                 } else { throw new Error(); }
             })
             .catch(() => {
@@ -639,7 +640,10 @@ loadMarkdown("README.md", "readmeDiv", "_parent", 1, function() {
           if (e.name === 'AbortError') {
               setStatus('Stopped: ' + localPath, 'warning');
           } else {
-              setStatus('Flask not reachable on port 8100 — attempted: ' + path, 'warning');
+              const escapedPath = path.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+              statusEl.className = 'alert alert-warning';
+              statusEl.innerHTML = 'Flask not reachable on port 8100 — attempted: ' + escapedPath +
+                  '<br><span style="margin-top:4px;display:block">Type <code>start cloud</code> in the webroot Claude Code CLI to start the server.</span>';
           }
       } finally {
           setRunning(false);
