@@ -17,6 +17,7 @@ from utils.notebook_utils import (
     NOTEBOOK_EXECUTION_AVAILABLE
 )
 from utils.auth_utils import require_token
+from utils.env_paths import resolve_env_path
 
 notebook_blueprint = Blueprint('notebook', __name__)
 
@@ -104,7 +105,7 @@ def run_local_stream():
     full_path = os.path.join(WEBROOT, notebook_path)
 
     def load_github_token():
-        """Load GitHub token from env vars or docker/.env, trying keys in priority order."""
+        """Load GitHub token from env vars or the automation/paths.yaml .env, trying keys in priority order."""
         import re
         priority = ['GITHUB_REPORTS_TOKEN', 'GITHUB_PERSONAL_ACCESS_TOKEN', 'GITHUB_TOKEN']
         # Check environment variables first
@@ -112,12 +113,12 @@ def run_local_stream():
             val = os.environ.get(key, '').strip()
             if val and 'placeholder' not in val.lower():
                 return val, key, None
-        # Fall back to docker/.env
-        docker_env = os.path.join(WEBROOT, 'docker', '.env')
-        if not os.path.exists(docker_env):
+        # Fall back to the .env set by automation/paths.yaml
+        env_path = resolve_env_path()
+        if not env_path or not os.path.exists(env_path):
             return None, None, None  # no token available; GitHub push will be skipped
         found = {}
-        with open(docker_env, 'r') as f:
+        with open(env_path, 'r') as f:
             for line in f:
                 m = re.match(r'^([A-Z_]+)=(.+)$', line.strip())
                 if m and m.group(1) in priority:
@@ -146,7 +147,7 @@ def run_local_stream():
             yield "[EXIT:1]\n"
             return
 
-        # Load GitHub token (env vars → docker/.env → none)
+        # Load GitHub token (env vars → automation/paths.yaml .env → none)
         github_token, token_key, _ = load_github_token()
         if github_token:
             yield f"✓ GitHub token loaded ({token_key})\n"

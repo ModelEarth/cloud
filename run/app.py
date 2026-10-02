@@ -1,6 +1,10 @@
 from dotenv import load_dotenv
 import os
-load_dotenv(os.path.join(os.path.dirname(__file__), '..', '..', 'docker', '.env'))
+from utils.env_paths import resolve_env_path
+# Shared webroot .env, located by env_file in automation/paths.yaml (absent on Cloud Run)
+_env_path = resolve_env_path()
+if _env_path and os.path.exists(_env_path):
+    load_dotenv(_env_path)
 
 import os
 from flask import Flask, send_from_directory, render_template, jsonify

@@ -8,6 +8,7 @@ import os
 import sys
 import json
 import subprocess
+from utils.env_paths import resolve_env_path
 
 # Check if running on Google Cloud
 try:
@@ -102,14 +103,15 @@ def save_config_route():
 
 @core_blueprint.route('/update-env', methods=['POST'])
 def update_env():
-    """Write key/value pairs to docker/.env without touching unrelated lines."""
+    """Write key/value pairs to the .env set by automation/paths.yaml without touching unrelated lines."""
     try:
         updates = request.get_json(force=True, silent=True) or {}
         if not updates:
             return jsonify({'status': 'error', 'message': 'No values provided'}), 400
 
-        webroot = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..'))
-        env_path = os.path.join(webroot, 'docker', '.env')
+        env_path = resolve_env_path()
+        if not env_path:
+            return jsonify({'status': 'error', 'message': 'No env_file set in automation/paths.yaml'}), 400
 
         # Read existing lines
         lines = []
@@ -132,7 +134,7 @@ def update_env():
         with open(env_path, 'w') as f:
             f.writelines(lines)
 
-        return jsonify({'status': 'success', 'message': f'docker/.env updated ({", ".join(updates.keys())})'})
+        return jsonify({'status': 'success', 'message': f'.env updated ({", ".join(updates.keys())})'})
     except Exception as e:
         return jsonify({'status': 'error', 'message': str(e)}), 500
 

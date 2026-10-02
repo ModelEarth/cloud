@@ -54,7 +54,7 @@ cd cloud/run
 cp -i .env.example .env
 ```
 
-TO DO: If there is no cloud/run/.env file, fallback to docker/.env. The "docker" repo is a webroot submodule.
+When running locally, app.py also loads the webroot's shared .env (the `env_file` set in `automation/paths.yaml`, outside webroot). Values in the environment take priority.
 
 <pre class="clouddev" style="display:none"><code>#For Cloud Deployment: Generate UI access token for login<br>./rotate-token.sh</code></pre></span>
 

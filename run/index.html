@@ -393,11 +393,11 @@ loadMarkdown("README.md", "readmeDiv", "_parent", 1, function() {
       </div>
 
       <div class="section" style="margin-top:20px;">
-          <h2>docker/.env Credentials</h2>
+          <h2>.env Credentials</h2>
           <div class="form-group">
               <label for="githubToken">GitHub Token:</label>
-              <input type="text" id="githubToken" name="githubToken" placeholder="GITHUB_REPORTS_TOKEN value from docker/.env">
-              <div class="help-text">Stored in docker/.env — never committed to git. Fine-grained token with Contents: Read/Write permissions.</div>
+              <input type="text" id="githubToken" name="githubToken" placeholder="GITHUB_REPORTS_TOKEN value from your .env">
+              <div class="help-text">Stored in the .env set by env_file in automation/paths.yaml (outside webroot) — never committed to git. Fine-grained token with Contents: Read/Write permissions.</div>
           </div>
           <div class="button-group" style="margin:10px 0 0;">
               <button type="button" class="btn btn-med btn-control" onclick="updateEnv()">Update .env</button>
@@ -479,7 +479,7 @@ loadMarkdown("README.md", "readmeDiv", "_parent", 1, function() {
           body: JSON.stringify({GITHUB_REPORTS_TOKEN: token})
       })
       .then(r => r.json())
-      .then(data => showStatus(data.message || 'docker/.env updated.', data.status === 'success' ? 'success' : 'error'))
+      .then(data => showStatus(data.message || '.env updated.', data.status === 'success' ? 'success' : 'error'))
       .catch(() => showStatus('Flask not reachable — start the server first.', 'error'));
   }
 
