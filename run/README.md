@@ -5,7 +5,7 @@ Setup Google Cloud Run service with Flask for a Jupyter notebook and GitHub.
 
 ## Setup Webroot
 
-<span class="num">1</span> **[Setup Webroot](https://model.earth/webroot/)** - The "cloud", "chat", "docker" and "data-pipeline" repos ares included as submodules.
+<span class="num">1</span> **[Setup Webroot](https://model.earth/webroot/)** - The "cloud", "realitystream", "chat" and "data-pipeline" repos ares included as submodules.
 
 <span class="localdev" style="display:none">
 <!--The Flask server will start on port 8100 (or PORT environment variable if set).-->
