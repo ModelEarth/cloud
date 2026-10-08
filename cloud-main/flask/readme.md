@@ -4,7 +4,7 @@
 
 Prepared by: Prem Chand Reddy Gopidinne
 
-TO DO: Just pull the [raw](https://raw.githubusercontent.com/ModelEarth/realitystream/refs/heads/main/models/Run-Models-bkup.ipynb) Run-Models-bkup.ipynb file  
+TO DO: Just pull the [raw](https://raw.githubusercontent.com/ModelEarth/realitystream/refs/heads/main/models/Run_Models.ipynb) Run_Models.ipynb file  
 Source: https://github.com/ModelEarth/realitystream/tree/main/models
 
 
@@ -114,7 +114,7 @@ Login using the token.
 
 In Jupyter Notebook:
 Navigate to: realitystream/models/
-Open Run-Models-bkup.ipynb.
+Open Run_Models.ipynb.
 Run the notebook cells.
 
 This runs the backup model notebook on the Google cloud server
