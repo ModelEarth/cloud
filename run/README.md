@@ -90,6 +90,53 @@ Promoted with: Create commands for creating a Google Cloud Run containing Flask 
    - Source repo: Contains the .ipynb notebook to execute
    - Target repo: Where the generated files will be pushed
 
+<div class="bucket"><a id="googleaccountautomation"></a>
+
+## Google Account for Automation
+
+Our RealityStream serverless APIs reside in [realitystream/models/main.py](../../realitystream/models/main.py) (`/health`, `/parameters`, `/run`). Settings are read by name from your shared .env, or from Cloud Run env vars and secrets once deployed.
+To let a Coding CLI create a "realitystream" Google Cloud project and deploy main.py, your Google account needs a credential that can manage projects.
+
+**A Google "API key" can't do this.** API keys (APIs & Services > Credentials > Create API key) only identify calls to APIs such as Gemini or Maps. Creating projects, linking billing and deploying to Cloud Run require an OAuth login or a service account. Choose one:
+
+**Option A: Sign in with your Google account (recommended)**  
+One login covers every project your account can access. Credentials are stored by gcloud, not in .env.
+
+    gcloud auth login
+    gcloud auth application-default login
+
+**Option B: Service account key (unattended automation)**  
+Use for scripts that run without you. Creating new projects with a service account requires a Google Cloud Organization, so for a personal Gmail account, create the project with Option A first.
+
+1. In [IAM & Admin > Service Accounts](https://console.cloud.google.com/iam-admin/serviceaccounts), create "realitystream-deployer".
+2. Grant roles: Cloud Run Admin, Cloud Build Editor, Artifact Registry Administrator, Service Account User, Service Usage Admin, Storage Admin.
+3. Under Keys, add a JSON key and save it outside the webroot (never commit it).
+4. In your shared .env (set by `env_file` in automation/paths.yaml), add GOOGLE_APPLICATION_CREDENTIALS with the JSON key's path.
+
+If key creation is blocked, your organization enforces `iam.disableServiceAccountKeyCreation`. Use Option A instead.
+
+**Add these to your shared .env** (names only shown here, never paste values into the terminal):
+
+    GOOGLE_PROJECT_ID=realitystream-yourname   # Project IDs are globally unique, so add a suffix
+    GOOGLE_BILLING_ID=000000-000000-000000     # From: gcloud billing accounts list
+    GOOGLE_REGION=us-central1                  # Optional, used by deploy-cloud-run.sh
+    REALITYSTREAM_API_KEY=                     # Optional: any long random string. main.py then requires header X-API-Key
+
+**Commands the Coding CLI runs to add the "realitystream" project and deploy:**
+
+    gcloud projects create $GOOGLE_PROJECT_ID --name="RealityStream"
+    gcloud billing projects link $GOOGLE_PROJECT_ID --billing-account=$GOOGLE_BILLING_ID
+    gcloud config set project $GOOGLE_PROJECT_ID
+    gcloud services enable run.googleapis.com cloudbuild.googleapis.com artifactregistry.googleapis.com
+    cd realitystream
+    ./deploy-cloud-run.sh cpu
+
+No Dockerfile is needed. Google Cloud buildpacks read realitystream's `requirements.txt`, `Procfile` (starts `models/main.py` with gunicorn) and `.python-version`, and `.gcloudignore` keeps notebooks and outputs out of the upload.
+
+To require the API key on Cloud Run, store it in Secret Manager and add `--set-secrets=REALITYSTREAM_API_KEY=realitystream-api-key:latest` to the gcloud command in deploy-cloud-run.sh. Uploading reports (`/run?upload=1`) also needs GITHUB_REPORTS_TOKEN as a secret.
+
+</div>
+
 ## Deployment
 
 <span class="num">3</span> Deploy to Google Cloud
