@@ -1,7 +1,7 @@
 # Google Cloud Run with CoLab+GitHub
 
 Setup Google Cloud Run service with Flask for a Jupyter notebook and GitHub.  
-[View Python](https://github.com/ModelEarth/cloud/tree/main/run) and [Resulting Deployment](https://notebook-executor-207223955365.us-central1.run.app)
+[View Python](https://github.com/ModelEarth/cloud/tree/main/run), [Resulting Deployment](https://realitystream-kwr4qrkopq-uc.a.run.app) and [Resulting Deployment (older)](https://notebook-executor-207223955365.us-central1.run.app)
 
 ## Setup Webroot
 
