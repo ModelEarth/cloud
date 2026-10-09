@@ -6,6 +6,21 @@ function rsDebugAlert(message) {
 let cachedParambaseContent = {};
 let currentParambase = null;
 
+// Webroot this script was loaded from (it resides in cloud/run/js/). Locally that's this site;
+// on pages hosted elsewhere, such as the RealityStream Cloud Run service, it's https://model.earth/.
+const RS_WEBROOT = (function () {
+  try {
+    return new URL('../../../', document.currentScript.src).href;
+  } catch (e) {
+    return '/';
+  }
+})();
+
+// Resolve a webroot path such as '/realitystream/models' against RS_WEBROOT
+function rsWebrootUrl(path) {
+  return path.startsWith('/') ? RS_WEBROOT + path.slice(1) : path;
+}
+
 function safeGetHash() {
   return typeof getHash === 'function' ? getHash() : {};
 }
@@ -28,11 +43,15 @@ document.addEventListener('hashChangeEvent', function (event) {
     // Reload YAML content for the current parambase
     const hash = safeGetHash();
     if (hash.parambase) {
+        // Hash values arrive encoded (spaces as +), so decode before matching dropdown options
+        const parambase = decodeHashValue(hash.parambase);
         const select = document.getElementById('parambase');
-        if (select) {
-            const selectedOption = Array.from(select.options).find(option => option.value === hash.parambase);
+        if (parambase === currentParambase) {
+            applyHashToParamText(); // Same base: apply other hash changes, such as #models=
+        } else if (select) {
+            const selectedOption = Array.from(select.options).find(option => option.value === parambase);
             if (selectedOption && selectedOption.dataset && selectedOption.dataset.url) {
-                loadParambaseYAML(hash.parambase, selectedOption.dataset.url);
+                loadParambaseYAML(parambase, selectedOption.dataset.url);
             }
         }
     } else {
@@ -147,7 +166,7 @@ function renderPathControls() {
     p.set('rs_source', source);
 
     rsCloseAddPopup();
-    window.location.href = destPath + '#' + p.toString();
+    window.location.href = rsWebrootUrl(destPath) + '#' + p.toString();
   }
 
   window.rsOpenAddPopup = rsOpenAddPopup;
@@ -632,7 +651,10 @@ if (applied) {
         // Hide custom path when switching to regular parambase
         hideCustomPathInput();
         
-        if (decodedParambase !== currentParambase) {
+        if (decodedParambase === currentParambase) {
+          // Same base: apply other hash changes, such as #models=, to the YAML
+          applyHashToParamText();
+        } else {
           const select = document.getElementById('parambase');
           if (select && select.options.length > 0) {
             console.log('HandleHashChange - Trying to set dropdown to:', decodedParambase);
@@ -1098,11 +1120,15 @@ window.rsCreateRowCard = rsCreateRowCard;
 
 function initRunPage() {
   const mode = document.body ? document.body.dataset.paramInput : '';
-  if (mode !== 'cloud-run') {
+  // 'cloud-run': cloud/run/page.html with the local Flask notebook runner.
+  // 'realitystream-api': the RealityStream Cloud Run home page, which has its own Run button,
+  // so only the YAML defaults and the features/targets cards below apply.
+  if (mode !== 'cloud-run' && mode !== 'realitystream-api') {
     return;
   }
+  const apiMode = mode === 'realitystream-api';
   const runButton = document.getElementById('runButton');
-  if (!runButton) {
+  if (!runButton && !apiMode) {
     rsDebugAlert('runButton not found');
     return;
   }
@@ -1120,6 +1146,7 @@ function initRunPage() {
 
   if (!yamlInput || !paramTextDiv) return;
 
+  if (!apiMode) { // Access token and local Flask status, for page.html only
   window.UI_ACCESS_TOKEN = null;
 
   const originalFetch = window.fetch;
@@ -1237,6 +1264,7 @@ function initRunPage() {
 
   if (retryBtn) retryBtn.addEventListener("click", checkFlask);
   checkFlask();
+  } // end page.html only
 
   const defaultYamlObj = {
     folder: "naics6-bees-counties",
@@ -1291,8 +1319,7 @@ function initRunPage() {
       : defaultYamlObj;
 
     const yamlString = jsyaml.dump(mergedYamlObj, { lineWidth: -1, flowLevel: -1 });
-    yamlInput.textContent = yamlString;
-    paramTextDiv.innerText = yamlString;
+    yamlInput.textContent = yamlString; // Keep the <pre> (setting the div's innerText would remove it)
     renderSelectionsFromYaml();
   }
 
@@ -1326,6 +1353,7 @@ window.addEventListener("hashchange", function () {
     observer.observe(preTag, { childList: true, subtree: true, characterData: true });
   }
 
+  if (!apiMode) { // Notebook steps and Run Notebook button, for page.html only
   if (stepsToggle) {
     stepsToggle.addEventListener('change', () => {
       if (stepsToggle.checked) {
@@ -1432,6 +1460,7 @@ window.addEventListener("hashchange", function () {
       status.textContent = 'Request failed: ' + error.message;
     });
   });
+  } // end page.html only
 
   function renderSelectionsFromYaml() {
     const featuresList = document.getElementById('rsFeaturesList');
@@ -1675,6 +1704,17 @@ function yamlToUrlParams(yamlStr) {
 
 // Global variable to store cached parambase YAML content
 
+// "Choose: models" scrolls to an embedded models picker (realitystream/js/model-select.js),
+// otherwise opens the models page
+function rsChooseModels() {
+    const picker = document.getElementById('modelSelect');
+    if (picker) {
+        picker.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        return;
+    }
+    goToPage('/realitystream/models');
+}
+
 // Function to create choose links after parambase dropdown
 function createChooseLinks() {
     // Check if choose links already exist
@@ -1689,7 +1729,7 @@ function createChooseLinks() {
     chooseDiv.innerHTML = `
         Choose:
         
-        <a href="#" onclick="goToPage('/realitystream/models'); return false;">models</a> | 
+        <a href="#" onclick="rsChooseModels(); return false;">models</a> | 
         <a href="#geoview=country">location</a> 
         <div class="local" style="display:none">
             | <a href="#" onclick="goToPage('/localsite/info'); return false;">features</a> |
@@ -1917,8 +1957,9 @@ async function loadBaseParamsSelect() {
     
 
     // Fetch parameter paths CSV
-    console.log('Fetching CSV from /realitystream/parameters/parameter-paths.csv');
-    const response = await fetch('/realitystream/parameters/parameter-paths.csv', { cache: 'no-store' });
+    const parameterPathsUrl = rsWebrootUrl('/realitystream/parameters/parameter-paths.csv');
+    console.log('Fetching CSV from', parameterPathsUrl);
+    const response = await fetch(parameterPathsUrl, { cache: 'no-store' });
     console.log('CSV fetch response status:', response.status);
 
     if (!response.ok) {
@@ -2193,8 +2234,10 @@ async function loadPopularFoodsIntoBaseParams() {
 // Function to load YAML content from parambase URL
 async function loadParambaseYAML(key, url) {
     try {
-        // Don't reload if it's the same parambase
+        // Don't reload if it's the same parambase, but apply hash changes such as #models=
+        // to the YAML currently in the editor (keeps manual edits)
         if (currentParambase === key && cachedParambaseContent[key]) {
+            applyHashToParamText();
             return;
         }
 
@@ -2281,6 +2324,27 @@ if (!yamlObj.features.path) {
 
 
 // Function to update paramText div with base YAML and apply hash overrides
+// Apply hash values (folder, features, targets, models) to the YAML in #paramText
+function applyHashToParamText() {
+    const preTag = document.querySelector('#paramText pre');
+    if (!preTag) return;
+    const currentYaml = preTag.textContent;
+    let parsedContent;
+    try {
+        parsedContent = parseYAML(currentYaml);
+    } catch (e) {
+        return; // YAML being edited isn't valid yet
+    }
+    if (!parsedContent) return;
+    parsedContent = updateYAMLFromHash(parsedContent, getHash(), ["folder", "features", "targets", "models"]);
+    const updatedYaml = convertToYAML(parsedContent);
+    if (updatedYaml !== currentYaml) {
+        preTag.textContent = updatedYaml;
+        updateResetButtonVisibility();
+        if (window.rsRefreshFromYaml) window.rsRefreshFromYaml();
+    }
+}
+
 function updateParamTextWithBase(baseYamlText) {
     const paramTextDiv = document.getElementById('paramText');
     const preTag = paramTextDiv.querySelector('pre');
@@ -2862,5 +2926,5 @@ hashParts.push(`${key}=${encodedValue}`);
     }
     
     const finalHash = hashParts.join('&');
-    window.location.href = whatPage + "#" + finalHash;
+    window.location.href = rsWebrootUrl(whatPage) + "#" + finalHash;
 }

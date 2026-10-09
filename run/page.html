@@ -19,6 +19,8 @@
 <script src="/localsite/js/earthscape.js"></script>
 
 <script src="js/param-input.js"></script>
+<!-- Shared models picker (list from realitystream/models/README.md), synced with #models= -->
+<script src="../../realitystream/js/model-select.js"></script>
   <style>
     bodyXX {
       font-family: Arial, sans-serif;
@@ -317,6 +319,9 @@ models: xgboost</textarea>
 <select id="parambase"></select>
 
 <div id="pathControls"></div>
+
+<div style="margin-top:12px"><b>Models:</b></div>
+<div id="modelSelect"></div>
 
 <div id="paramText" class="codetext" rows="10" contenteditable><pre>
 <b>folder:</b> naics6-bees-counties
