@@ -40,7 +40,7 @@ View [Streamlit Interface](/streamlit/) for advanced data processing and visuali
 
 The application creates a web interface with configuration management and notebook execution capabilities.
 
-<div class="bucket"><a id="startflasklocally"></a>
+<div class="bucket" markdown="1"><a id="startflasklocally"></a>
 
 ## Start Flask Locally
 
@@ -90,9 +90,11 @@ Promoted with: Create commands for creating a Google Cloud Run containing Flask 
    - Source repo: Contains the .ipynb notebook to execute
    - Target repo: Where the generated files will be pushed
 
-<div class="bucket"><a id="googleaccountautomation"></a>
+<div class="bucket" markdown="1"><a id="googleaccountautomation"></a>
 
 ## Google Account for Automation
+
+Live service: [realitystream-839376296196.us-central1.run.app/health](https://realitystream-839376296196.us-central1.run.app/health) (project "realitystream", us-central1)
 
 Our RealityStream serverless APIs reside in [realitystream/models/main.py](../../realitystream/models/main.py) (`/health`, `/parameters`, `/run`). Settings are read by name from your shared .env, or from Cloud Run env vars and secrets once deployed.
 To let a Coding CLI create a "realitystream" Google Cloud project and deploy main.py, your Google account needs a credential that can manage projects.
@@ -153,7 +155,7 @@ The script will:
 - Build and deploy the container to Cloud Run
 - Provide the service URL for webhook configuration
 
-<div class="bucket"><a id="manualsetupalternative"></a>
+<div class="bucket" markdown="1"><a id="manualsetupalternative"></a>
 
 ## Manual Setup (Alternative)
 
