@@ -296,6 +296,40 @@ body.dark .rsDetailsInline {
   margin-right: 10px;
 }
 
+/* Dataset card menus show a horizontal 3-dot icon instead of localsite's circle arrow.
+   Done in CSS because localsite's setPanelToggleIcon() resets the icon text when the menu toggles. */
+.rsCardMenuHolder .menuIconHolder .material-icons {
+  display: none !important;
+}
+.rsCardMenuHolder .menuIconHolder::after {
+  content: 'more_horiz';
+  font-family: 'Material Symbols Outlined';
+  font-size: 22px;
+  line-height: 1;
+  -webkit-font-feature-settings: 'liga';
+  font-feature-settings: 'liga';
+  /* Circle shape behind the dots */
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.07);
+  color: #333;
+  transition: background 0.15s;
+}
+.rsCardMenuHolder .menuIconHolder:hover::after {
+  background: rgba(0, 0, 0, 0.15);
+}
+.dark .rsCardMenuHolder .menuIconHolder::after {
+  background: rgba(255, 255, 255, 0.12);
+  color: #eee;
+}
+.dark .rsCardMenuHolder .menuIconHolder:hover::after {
+  background: rgba(255, 255, 255, 0.22);
+}
+
 .rsRowCard {
   position: relative;
   border: 1px solid #ddd;
@@ -309,6 +343,9 @@ body.dark .rsDetailsInline {
 .rsCardTitle {
   font-weight: 600;
   font-size: 12px;
+}
+.rsCardTitle a {
+  font-weight: 400;
 }
 
 .rsCardFilename {
@@ -391,3 +428,6 @@ body.dark .rsDetails a {
   border: none !important;
   background: rgba(0, 123, 255, 0.06);
 }
+
+/* Card URLs: short by default; pages can show .rsUrlFull instead (realitystream/js/run-panel.js Expansive layout) */
+.rsUrlFull { display: none; }

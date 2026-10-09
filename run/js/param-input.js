@@ -900,7 +900,10 @@ function rsCreateRowCard(options) {
     const url = rsLooksLikeUrl(linkUrl) ? linkUrl : rawTitle;
     const shortText = rsTruncate(url, 50);
 
-    title.innerHTML = `<a href="${url}" target="_blank" rel="noopener noreferrer" title="${url}">${shortText}</a>`;
+    // Short and full URL text; param.css shows the short one unless a page asks for the full URL
+    // (the Expansive layout in realitystream/js/run-panel.js)
+    title.innerHTML = `<a href="${url}" target="_blank" rel="noopener noreferrer" title="${url}">`
+      + `<span class="rsUrlShort">${shortText}</span><span class="rsUrlFull">${url}</span></a>`;
   } else {
     title.textContent = rawTitle;
   }
@@ -937,9 +940,9 @@ function rsCreateRowCard(options) {
     const resolvedPath = previewPath || rsFillPlaceholders(fullPath, pv);
 card.dataset.rawUrl = resolvedPath;
 if (resolvedPath && title) {
-  title.innerHTML = `<a href="${resolvedPath}" target="_blank" rel="noopener noreferrer" title="${resolvedPath}">
-    ${rsTruncate(resolvedPath, 50)}
-  </a>`;
+  // Short and full URL text, as above (the Expansive layout shows the full URL)
+  title.innerHTML = `<a href="${resolvedPath}" target="_blank" rel="noopener noreferrer" title="${resolvedPath}">`
+    + `<span class="rsUrlShort">${rsTruncate(resolvedPath, 50)}</span><span class="rsUrlFull">${resolvedPath}</span></a>`;
 }
 
 if (resolvedPath && filename) {
