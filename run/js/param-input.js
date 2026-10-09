@@ -1120,8 +1120,9 @@ window.rsCreateRowCard = rsCreateRowCard;
 
 function initRunPage() {
   const mode = document.body ? document.body.dataset.paramInput : '';
-  // 'cloud-run': cloud/run/page.html with the local Flask notebook runner.
-  // 'realitystream-api': the RealityStream Cloud Run home page, which has its own Run button,
+  // 'cloud-run': the local Flask notebook runner (formerly cloud/run/page.html, now a redirect).
+  // 'realitystream-api': realitystream/models/ and the RealityStream Cloud Run home page, which use
+  // realitystream/js/run-panel.js for their Run button,
   // so only the YAML defaults and the features/targets cards below apply.
   if (mode !== 'cloud-run' && mode !== 'realitystream-api') {
     return;
@@ -1146,7 +1147,7 @@ function initRunPage() {
 
   if (!yamlInput || !paramTextDiv) return;
 
-  if (!apiMode) { // Access token and local Flask status, for page.html only
+  if (!apiMode) { // Access token and local Flask status, for the cloud-run mode only
   window.UI_ACCESS_TOKEN = null;
 
   const originalFetch = window.fetch;
@@ -1264,7 +1265,7 @@ function initRunPage() {
 
   if (retryBtn) retryBtn.addEventListener("click", checkFlask);
   checkFlask();
-  } // end page.html only
+  } // end cloud-run mode only
 
   const defaultYamlObj = {
     folder: "naics6-bees-counties",
@@ -1353,7 +1354,7 @@ window.addEventListener("hashchange", function () {
     observer.observe(preTag, { childList: true, subtree: true, characterData: true });
   }
 
-  if (!apiMode) { // Notebook steps and Run Notebook button, for page.html only
+  if (!apiMode) { // Notebook steps and Run Notebook button, for the cloud-run mode only
   if (stepsToggle) {
     stepsToggle.addEventListener('change', () => {
       if (stepsToggle.checked) {
@@ -1460,7 +1461,7 @@ window.addEventListener("hashchange", function () {
       status.textContent = 'Request failed: ' + error.message;
     });
   });
-  } // end page.html only
+  } // end cloud-run mode only
 
   function renderSelectionsFromYaml() {
     const featuresList = document.getElementById('rsFeaturesList');

@@ -94,7 +94,12 @@ Promoted with: Create commands for creating a Google Cloud Run containing Flask 
 
 ## Google Account for Automation
 
-Live service: [realitystream-839376296196.us-central1.run.app/health](https://realitystream-839376296196.us-central1.run.app/health) (project "realitystream", us-central1)
+Live service: [realitystream-kwr4qrkopq-uc.a.run.app](https://realitystream-kwr4qrkopq-uc.a.run.app) (project "realitystream", us-central1), also used by [Run Models](../../realitystream/models/)
+
+**Running more models:** without an API key, the service runs 1 model once per day for each visitor. To run more, either:
+
+- **Add the REALITYSTREAM_API_KEY for this Google Cloud project.** Ask the project's admin for the key (stored in Secret Manager as `realitystream-api-key`), then paste it into the API key field on [Run Models](../../realitystream/models/). Your browser remembers it until you choose Forget key.
+- **Run on your own cloud account.** Follow the steps below with your own project ID and billing account, then deploy. You get your own service URL and your own daily limits.
 
 Our RealityStream serverless APIs reside in [realitystream/models/main.py](../../realitystream/models/main.py) (`/health`, `/parameters`, `/run`). Settings are read by name from your shared .env, or from Cloud Run env vars and secrets once deployed.
 To let a Coding CLI create a "realitystream" Google Cloud project and deploy main.py, your Google account needs a credential that can manage projects.
@@ -122,7 +127,7 @@ If key creation is blocked, your organization enforces `iam.disableServiceAccoun
     GOOGLE_PROJECT_ID=realitystream-yourname   # Project IDs are globally unique, so add a suffix
     GOOGLE_BILLING_ID=000000-000000-000000     # From: gcloud billing accounts list
     GOOGLE_REGION=us-central1                  # Optional, used by deploy-cloud-run.sh
-    REALITYSTREAM_API_KEY=                     # Optional: any long random string. main.py then requires header X-API-Key
+    REALITYSTREAM_API_KEY=                     # Optional: any long random string. Without it in header X-API-Key, callers get 1 model once per day
 
 **Commands the Coding CLI runs to add the "realitystream" project and deploy:**
 
@@ -135,7 +140,15 @@ If key creation is blocked, your organization enforces `iam.disableServiceAccoun
 
 No Dockerfile is needed. Google Cloud buildpacks read realitystream's `requirements.txt`, `Procfile` (starts `models/main.py` with gunicorn) and `.python-version`, and `.gcloudignore` keeps notebooks and outputs out of the upload.
 
-To require the API key on Cloud Run, store it in Secret Manager and add `--set-secrets=REALITYSTREAM_API_KEY=realitystream-api-key:latest` to the gcloud command in deploy-cloud-run.sh. Uploading reports (`/run?upload=1`) also needs GITHUB_REPORTS_TOKEN as a secret.
+To use an API key on Cloud Run, store it in Secret Manager as `realitystream-api-key` and let the service read it. deploy-cloud-run.sh attaches the secret automatically when it exists:
+
+    gcloud services enable secretmanager.googleapis.com
+    printf %s "$REALITYSTREAM_API_KEY" | gcloud secrets create realitystream-api-key --data-file=-
+    gcloud secrets add-iam-policy-binding realitystream-api-key \
+      --member="serviceAccount:$(gcloud projects describe $GOOGLE_PROJECT_ID --format='value(projectNumber)')-compute@developer.gserviceaccount.com" \
+      --role="roles/secretmanager.secretAccessor"
+
+Uploading reports (`/run?upload=1`) needs the API key, and GITHUB_REPORTS_TOKEN as a secret.
 
 </div>
 
@@ -300,9 +313,9 @@ CMD exec gunicorn --bind :$PORT --workers 1 --threads 8 --timeout 0 app:app
 ```
 
 
-### `page.html`
+### Run Models page
 
-[Page.html](page.html) contains the button that will run our .ipynb file.
+[Run Models](../../realitystream/models/) (formerly page.html) chooses parameters, datasets and models, and runs them on the [RealityStream Cloud Run API](https://realitystream-kwr4qrkopq-uc.a.run.app).
 
 ## Part 5: Create Modified Notebook
 
