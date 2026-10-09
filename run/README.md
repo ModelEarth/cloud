@@ -96,9 +96,9 @@ Promoted with: Create commands for creating a Google Cloud Run containing Flask 
 
 Live service: [realitystream-kwr4qrkopq-uc.a.run.app](https://realitystream-kwr4qrkopq-uc.a.run.app) (project "realitystream", us-central1), also used by [Run Models](../../realitystream/models/)
 
-**Running more models:** without an API key, the service runs 1 model once per day for each visitor. To run more, either:
+**Running more models:** without the Team Passphrase, the service runs 1 model once per day for each visitor. To run more, either:
 
-- **Add the REALITYSTREAM_API_KEY for this Google Cloud project.** Ask the project's admin for the key (stored in Secret Manager as `realitystream-api-key`), then paste it into the API key field on [Run Models](../../realitystream/models/). Your browser remembers it until you choose Forget key.
+- **Add the REALITYSTREAM_API_KEY for this Google Cloud project.** Ask the project's admin for the Team Passphrase (stored in Secret Manager as `realitystream-api-key`; it's our own shared passphrase, not a Google key), then enter it in the Team Passphrase field on [Run Models](../../realitystream/models/). Your browser remembers it until you choose Forget passphrase.
 - **Run on your own cloud account.** Follow the steps below with your own project ID and billing account, then deploy. You get your own service URL and your own daily limits.
 
 Our RealityStream serverless APIs reside in [realitystream/models/main.py](../../realitystream/models/main.py) (`/health`, `/parameters`, `/run`). Settings are read by name from your shared .env, or from Cloud Run env vars and secrets once deployed.
@@ -140,7 +140,7 @@ If key creation is blocked, your organization enforces `iam.disableServiceAccoun
 
 No Dockerfile is needed. Google Cloud buildpacks read realitystream's `requirements.txt`, `Procfile` (starts `models/main.py` with gunicorn) and `.python-version`, and `.gcloudignore` keeps notebooks and outputs out of the upload.
 
-To use an API key on Cloud Run, store it in Secret Manager as `realitystream-api-key` and let the service read it. deploy-cloud-run.sh attaches the secret automatically when it exists:
+To use a Team Passphrase on Cloud Run, store it in Secret Manager as `realitystream-api-key` and let the service read it. deploy-cloud-run.sh attaches the secret automatically when it exists:
 
     gcloud services enable secretmanager.googleapis.com
     printf %s "$REALITYSTREAM_API_KEY" | gcloud secrets create realitystream-api-key --data-file=-
@@ -148,7 +148,7 @@ To use an API key on Cloud Run, store it in Secret Manager as `realitystream-api
       --member="serviceAccount:$(gcloud projects describe $GOOGLE_PROJECT_ID --format='value(projectNumber)')-compute@developer.gserviceaccount.com" \
       --role="roles/secretmanager.secretAccessor"
 
-Uploading reports (`/run?upload=1`) needs the API key, and GITHUB_REPORTS_TOKEN as a secret.
+Uploading reports (`/run?upload=1`) needs the Team Passphrase, and GITHUB_REPORTS_TOKEN as a secret.
 
 </div>
 
