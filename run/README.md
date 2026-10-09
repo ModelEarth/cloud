@@ -269,7 +269,7 @@ Commands for [Storing a GitHub Token in Secret Manager](../../localsite/start/st
 We named the token: github-token-run-models-1
 
 <!-- Since this is account-wide, let's call it github-token-modelearth-run-models
-TO DO: This will need to get sent into Run_Models.ipynb as a variable.
+TO DO: This will need to get sent into run-models-colab.py as a variable.
 -->
 
 ```bash

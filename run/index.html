@@ -154,7 +154,7 @@ loadMarkdown("README.md", "readmeDiv", "_parent", 1, function() {
         </h2>
         <div class="run-target-option clouddev">
             <input type="radio" name="runTarget" id="notebook">
-            <label for="notebook"><span class="run-target-path" id="notebookDisplay">/realitystream/models/Run_Models.ipynb</span><input type="text" class="run-target-input" id="notebookInput"></label>
+            <label for="notebook"><span class="run-target-path" id="notebookDisplay">/realitystream/models/run-models-colab.py</span><input type="text" class="run-target-input" id="notebookInput"></label>
             <button type="button" class="btn edit-target-btn" data-id="notebook" data-key="local.notebook" style="padding:4px 10px;font-size:13px;margin:0;">Edit</button>
         </div>
         <div class="run-target-option">
@@ -185,7 +185,7 @@ loadMarkdown("README.md", "readmeDiv", "_parent", 1, function() {
       <input type="radio" name="execution" id="simplePython" value="simple"> Simple python
     </label><br>
     <label>
-      <input type="radio" name="execution" id="notebookPython" value="notebook"> Run_Models.ipynb python
+      <input type="radio" name="execution" id="notebookPython" value="notebook"> run-models-colab.py (raw colab export)
     </label>
 
     <div id="executionInstructions" style="margin-top:10px; font-style:italic;">
@@ -202,7 +202,7 @@ loadMarkdown("README.md", "readmeDiv", "_parent", 1, function() {
         if (simplePython.checked) {
           execInstructions.innerHTML = "Instructions for running Simple python.";
         } else if (notebookPython.checked) {
-          execInstructions.innerHTML = "Instructions for running Run_Models.ipynb python.";
+          execInstructions.innerHTML = "Instructions for running run-models-colab.py (raw colab export).";
         }
       }
 
@@ -513,7 +513,7 @@ loadMarkdown("README.md", "readmeDiv", "_parent", 1, function() {
 
   // Load run target paths: localStorage > config.yaml local node > hardcoded defaults
   const runTargets = [
-      { id: 'notebook',       key: 'local.notebook',       yamlKey: 'notebook',       def: '/realitystream/models/Run_Models.ipynb' },
+      { id: 'notebook',       key: 'local.notebook',       yamlKey: 'notebook',       def: '/realitystream/models/run-models-colab.py' },
       { id: 'pythonPath',     key: 'local.python',         yamlKey: 'python',         def: '/realitystream/run_models.py' },
       { id: 'simpleNotebook', key: 'local.simplenotebook', yamlKey: 'simplenotebook', def: '/cloud/run/notebook.ipynb' }
   ];
