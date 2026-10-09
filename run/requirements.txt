@@ -20,3 +20,4 @@ fpdf
 plotly
 numpy
 regex
+keyring>=24   # local key store (utils/keystore.py)

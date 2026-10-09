@@ -409,3 +409,11 @@ gcloud scheduler jobs create http notebook-executor-scheduler \
 - Check the notebook execution logs in Cloud Run
 
 Should we move anything from [cloud-main](../cloud-main) into the cloud/run folder?
+
+## Local key store
+
+Start Flask and open [localhost:8100/keys](http://localhost:8100/keys). The page answers only to 127.0.0.1, so it never appears on Cloud Run. Paste `NAME=value` lines, for example copied from a Google Doc, and each is written to the OS credential store (Windows Credential Manager, macOS Keychain, Linux Secret Service) under the app name `modelearth`. Values are never shown again; the page lists names and today's read counts, with a delete button. Command line: `python -m utils.keystore list|set|get|delete NAME`.
+
+Readers take one name at a time: the runner's token loader and `realitystream/run_models.py` check the store before the env file, and each name allows `DAILY_KEY_READS` reads a day (default 50).
+
+Limit to be clear about: the user who stored a key can always read it back, because the OS unlocks the store for that user's processes. This removes the plaintext `.env` that one file read could copy; it does not make a key unreadable on the laptop. Keys that must never be readable locally belong in Secret Manager on Cloud Run.
