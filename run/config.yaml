@@ -1,7 +1,7 @@
 # Run on localhost
 
 local:
-  notebook: "/realitystream/models/Run_Models.ipynb"
+  notebook: "/realitystream/models/run-models-colab.py"
   simplenotebook: "/cloud/run/notebook.ipynb"
   python: "/realitystream/run_models.py"
 
