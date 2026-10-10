@@ -1625,7 +1625,36 @@ if (isProfileItemPage()) {
 }
 
 // Function to convert YAML to URL parameters
+// YAML to hash params (nested keys as features.path, lists comma-separated), for goToPage().
+// Uses js-yaml when loaded, which keeps lists nested under a key (such as features.naics) in place.
 function yamlToUrlParams(yamlStr) {
+    if (typeof jsyaml !== 'undefined') {
+        let obj;
+        try {
+            obj = jsyaml.load(String(yamlStr).replace(/<b>|<\/b>/g, '')) || {};
+        } catch (e) {
+            return yamlToUrlParamsSimple(yamlStr);
+        }
+        const params = [];
+        const add = (o, prefix) => {
+            Object.entries(o).forEach(([key, value]) => {
+                const paramKey = prefix ? `${prefix}.${key}` : key;
+                if (value && typeof value === 'object' && !Array.isArray(value)) {
+                    add(value, paramKey);
+                } else if (Array.isArray(value)) {
+                    params.push(`${paramKey}=${value.map(v => encodeURIComponent(String(v))).join(',')}`);
+                } else if (value !== null && value !== undefined) {
+                    params.push(`${paramKey}=${encodeURIComponent(String(value))}`);
+                }
+            });
+        };
+        if (typeof obj === 'object') add(obj, '');
+        return params.join('&');
+    }
+    return yamlToUrlParamsSimple(yamlStr);
+}
+
+function yamlToUrlParamsSimple(yamlStr) {
     // Simple YAML parser for this specific format
     const lines = yamlStr.split('\n');
     const paramsYaml = {};
