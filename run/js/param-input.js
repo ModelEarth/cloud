@@ -300,16 +300,22 @@ function rsRenderSelectionsFromYamlProfile() {
 // (realitystream/, realitystream/models/, the Cloud Run page, profile/item)
 function rsJoinStatusText(yamlObj) {
   const features = (yamlObj && yamlObj.features) || {};
-  const common = (features.common || '').toString().trim();
+  let common = (features.common || '').toString().trim() || 'FIPS';
+  if (common.toLowerCase() === 'fips') common = 'FIPS';
   const scope = (features.scope || (yamlObj && yamlObj.scope) || '').toString().trim();
-  if (!common && !scope) return '';
-  return `Joining features and target on: ${scope || 'country'} using common ${common || 'FIPS'}`;
+  if (!features.common && !scope) return '';
+  return `Joining features and target on: ${scope || 'country'} using common ${common}`;
 }
 
 function rsShowJoinStatus(el, yamlObj) {
   if (!el) return;
   const text = rsJoinStatusText(yamlObj);
   el.textContent = text;
+  // When joining on FIPS, explain the term on the next line
+  if (/ FIPS$/.test(text)) {
+    el.appendChild(document.createElement('br'));
+    el.appendChild(document.createTextNode('FIPS are IDs for each County and State. (Federal Information Processing Standard)'));
+  }
   el.style.display = text ? 'block' : 'none';
 }
 
