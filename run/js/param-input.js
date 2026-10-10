@@ -5,6 +5,8 @@ function rsDebugAlert(message) {
 // Global variables for parambase handling (declared early to avoid TDZ)
 let cachedParambaseContent = {};
 let currentParambase = null;
+// YAML keys that hash values can override
+const RS_YAML_ROOTS = ["folder", "features", "targets", "models"];
 
 // Webroot this script was loaded from (it resides in cloud/run/js/). Locally that's this site;
 // on pages hosted elsewhere, such as the RealityStream Cloud Run service, it's https://model.earth/.
@@ -291,16 +293,24 @@ function rsRenderSelectionsFromYamlProfile() {
   featuresEmpty.style.display = featureItems.length ? 'none' : 'block';
   targetEmpty.style.display = targetItems.length ? 'none' : 'block';
 
-  if (joinStatus) {
-    const common = (features.common || '').toString().trim();
-    const scope = (features.scope || yamlObj.scope || '').toString().trim();
-    if (common || scope) {
-      joinStatus.textContent = `Joining on: ${scope || 'country'} using common ${common || 'FIPS'}`;
-      joinStatus.style.display = 'block';
-    } else {
-      joinStatus.style.display = 'none';
-    }
-  }
+  rsShowJoinStatus(joinStatus, yamlObj);
+}
+
+// Join line under the features and target cards, shared by every page that shows them
+// (realitystream/, realitystream/models/, the Cloud Run page, profile/item)
+function rsJoinStatusText(yamlObj) {
+  const features = (yamlObj && yamlObj.features) || {};
+  const common = (features.common || '').toString().trim();
+  const scope = (features.scope || (yamlObj && yamlObj.scope) || '').toString().trim();
+  if (!common && !scope) return '';
+  return `Joining features and target on: ${scope || 'country'} using common ${common || 'FIPS'}`;
+}
+
+function rsShowJoinStatus(el, yamlObj) {
+  if (!el) return;
+  const text = rsJoinStatusText(yamlObj);
+  el.textContent = text;
+  el.style.display = text ? 'block' : 'none';
 }
 
 
@@ -1601,18 +1611,7 @@ isProbablyDcid: isProbablyDcidLocal,
     featuresEmpty.style.display = featureItems.length ? 'none' : 'block';
     targetEmpty.style.display = targetItems.length ? 'none' : 'block';
 
-    if (joinStatus) {
-      const common = (features.common || '').toString().trim();
-      const scope = (features.scope || yamlObj.scope || '').toString().trim();
-      if (common || scope) {
-        const scopeLabel = scope || 'country';
-        const commonLabel = common || 'FIPS';
-        joinStatus.textContent = `Joining on: ${scopeLabel} using common ${commonLabel}`;
-        joinStatus.style.display = 'block';
-      } else {
-        joinStatus.style.display = 'none';
-      }
-    }
+    rsShowJoinStatus(joinStatus, yamlObj);
   }
 
   populateFoodDropdown();
@@ -2563,10 +2562,11 @@ function ensureParambaseUI() {
     yamlLink.target = '_blank';
     yamlLink.rel = 'noopener';
     yamlLink.textContent = 'Base YAML';
-    yamlLink.style.fontSize = '12px';
+    // Transparent bordered button (localsite .btn-clear); size and corners in param.css .rs-param-button
+    yamlLink.className = 'btn btn-clear rs-param-button';
     yamlLink.style.marginLeft = '6px';
+    yamlLink.style.whiteSpace = 'nowrap';
     yamlLink.style.textDecoration = 'none';
-    yamlLink.style.color = 'inherit';
 
 
     // Create Reset button (initially hidden)
@@ -2574,11 +2574,10 @@ function ensureParambaseUI() {
     resetButton.id = 'parambase-reset';
     resetButton.type = 'button';
     resetButton.textContent = 'Reset';
-    resetButton.className = 'btn btn-white btn-sm';
+    // Same look as the Base YAML button beside it
+    resetButton.className = 'btn btn-clear rs-param-button';
     resetButton.title = 'Clear URL parameters and reload base YAML';
-    resetButton.style.fontSize = '12px';
     resetButton.style.marginLeft = '6px';
-    resetButton.style.padding = '2px 6px';
     resetButton.style.whiteSpace = 'nowrap';
     resetButton.style.display = 'none'; // Initially hidden
 
@@ -2656,10 +2655,67 @@ function updateYamlLink(selectEl) {
     }
 }
 
-// Helper function to check if current YAML differs from base and show/hide reset button
+// Flatten a YAML object to dotted keys (features.path), keeping arrays as values
+function rsFlattenYaml(obj, prefix = '', out = {}) {
+    Object.entries(obj || {}).forEach(([key, value]) => {
+        const path = prefix ? `${prefix}.${key}` : key;
+        if (value && typeof value === 'object' && !Array.isArray(value)) {
+            rsFlattenYaml(value, path, out);
+        } else {
+            out[path] = value;
+        }
+    });
+    return out;
+}
+
+// Compare values loosely: a one-item list equals its item, numbers equal their text, case ignored
+function rsNormYamlValue(value) {
+    if (Array.isArray(value)) {
+        return value.length === 1 ? rsNormYamlValue(value[0]) : value.map(rsNormYamlValue).join(',');
+    }
+    if (value === null || value === undefined) return '';
+    return String(value).trim().toLowerCase();
+}
+
+// Flattened keys whose values differ between two YAML objects (only the RS_YAML_ROOTS keys)
+function rsYamlDifferences(current, base) {
+    const cur = rsFlattenYaml(current), bas = rsFlattenYaml(base);
+    const inRoots = key => RS_YAML_ROOTS.includes(key.split('.')[0]);
+    return [...new Set([...Object.keys(cur), ...Object.keys(bas)])]
+        .filter(key => inRoots(key) && rsNormYamlValue(cur[key]) !== rsNormYamlValue(bas[key]));
+}
+
+// The selected parameter base's YAML as an object, or null when none is loaded
+function rsBaseYamlObject() {
+    const baseText = currentParambase && cachedParambaseContent[currentParambase];
+    if (!baseText) return null;
+    try {
+        return parseYAML(baseText) || {};
+    } catch (e) {
+        return null;
+    }
+}
+
+// Show Reset only when the YAML differs from the selected parameter base
 function updateResetButtonVisibility() {
     const resetButton = document.getElementById('parambase-reset');
     if (!resetButton) return;
+
+    const baseObj = rsBaseYamlObject();
+    const preTag = document.querySelector('#paramText pre');
+    if (baseObj && preTag) {
+        let currentObj = null;
+        try {
+            currentObj = parseYAML(preTag.textContent) || {};
+        } catch (e) {
+            currentObj = null; // YAML being edited isn't valid yet
+        }
+        const differs = !currentObj || rsYamlDifferences(currentObj, baseObj).length > 0;
+        resetButton.style.display = differs ? 'inline-block' : 'none';
+        return;
+    }
+
+    // No parameter base loaded: fall back to whether the hash overrides any YAML values
 
     // Check if there are any hash parameters that would modify the YAML content
     const hash = getHash();
@@ -2929,35 +2985,47 @@ function convertToYAML(obj) {
 
 // Get model parameters from textbox and pass forward in hash.
 function goToPage(whatPage) { // Used by RealityStream/index.html
-    // Get current hash parameters
-    const currentHash = getHash();
-    
-    // Get YAML content and convert to URL parameters
-    const yamlContent = parseYamlContent();
-    const yamlParams = yamlToUrlParams(yamlContent);
-    
-    // Parse YAML params into object for merging
-    const yamlParamsObj = {};
-    if (yamlParams) {
-        yamlParams.split('&').forEach(pair => {
-            const [key, value] = pair.split('=');
-            if (key) yamlParamsObj[key] = decodeURIComponent(value || '');
+    // Carry the current settings to another page (for example realitystream/models): the hash's own
+    // values (such as parambase) plus the YAML values that differ from the selected parameter base,
+    // which the next page loads itself. Without a parameter base, every YAML value is carried.
+    // getHash() values are still URL-encoded (only %26 is turned back into &), so they're re-encoded
+    // with encodeHashValue rather than encodeURIComponent, which would double-encode them.
+    const params = {};
+
+    // Current hash, except YAML values (taken from the YAML below); nested objects flattened back
+    const addHash = (obj, prefix) => {
+        Object.entries(obj || {}).forEach(([key, value]) => {
+            const paramKey = prefix ? `${prefix}.${key}` : key;
+            if (!prefix && RS_YAML_ROOTS.includes(key)) return;
+            if (value && typeof value === 'object') {
+                addHash(value, paramKey);
+            } else if (value !== undefined && value !== null && value !== '') {
+                params[paramKey] = encodeHashValue(value);
+            }
+        });
+    };
+    addHash(getHash(), '');
+
+    let yamlObj = null;
+    try {
+        yamlObj = parseYAML(parseYamlContent()) || {};
+    } catch (e) {
+        yamlObj = null;
+    }
+    if (yamlObj) {
+        const baseObj = rsBaseYamlObject();
+        const flat = rsFlattenYaml(yamlObj);
+        const keys = baseObj ? rsYamlDifferences(yamlObj, baseObj)
+                             : Object.keys(flat).filter(key => RS_YAML_ROOTS.includes(key.split('.')[0]));
+        keys.forEach(key => {
+            const value = flat[key];
+            if (value === undefined || value === null) return; // Removed keys can't be expressed in the hash
+            params[key] = Array.isArray(value)
+                ? value.map(v => encodeURIComponent(String(v))).join(',')
+                : encodeURIComponent(String(value));
         });
     }
-    
-    // Merge current hash with YAML params (YAML params take priority)
-    const mergedParams = { ...currentHash, ...yamlParamsObj };
-    
-    // Rebuild hash string with encoded values
-    const hashParts = [];
-    for (const [key, value] of Object.entries(mergedParams)) {
-        if (value !== undefined && value !== null && value !== '') {
-            const encodedValue = encodeURIComponent(String(value));
-hashParts.push(`${key}=${encodedValue}`);
 
-        }
-    }
-    
-    const finalHash = hashParts.join('&');
+    const finalHash = Object.entries(params).map(([key, value]) => `${key}=${value}`).join('&');
     window.location.href = rsWebrootUrl(whatPage) + "#" + finalHash;
 }

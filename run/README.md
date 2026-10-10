@@ -98,7 +98,7 @@ Live service: [realitystream-kwr4qrkopq-uc.a.run.app](https://realitystream-kwr4
 
 **Running more models:** without the Team Passphrase, the service runs 1 model once per day for each visitor. To run more, either:
 
-- **Add the REALITYSTREAM_API_KEY for this Google Cloud project.** Ask the project's admin for the Team Passphrase (stored in Secret Manager as `realitystream-api-key`; it's our own shared passphrase, not a Google key), then enter it in the Team Passphrase field on [Run Models](../../realitystream/models/). Your browser remembers it until you choose Forget passphrase.
+- **Add the REALITYSTREAM_API_KEY for this Google Cloud project.** Ask the project's admin for the Team Passphrase (stored in Secret Manager as `realitystream-api-key`; it's our own shared passphrase, not a Google key), then enter it in the Team Passphrase field on [Run Models](../../realitystream/models/). Your browser remembers it until you choose Clear.
 - **Run on your own cloud account.** Follow the steps below with your own project ID and billing account, then deploy. You get your own service URL and your own daily limits.
 
 Our RealityStream serverless APIs reside in [realitystream/models/main.py](../../realitystream/models/main.py) (`/health`, `/parameters`, `/run`). Settings are read by name from your shared .env, or from Cloud Run env vars and secrets once deployed.

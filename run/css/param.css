@@ -110,7 +110,7 @@ body.dark .rs-popup-subtitle {
 .rs-join-status {
   display: none;
   margin: 10px 0 6px 0;
-  padding: 10px 12px;
+  padding: 10px 12px 10px 0;
   border-radius: 10px;
   font-size: 13px;
 }
@@ -431,3 +431,13 @@ body.dark .rsDetails a {
 
 /* Card URLs: short by default; pages can show .rsUrlFull instead (realitystream/js/run-panel.js Expansive layout) */
 .rsUrlFull { display: none; }
+
+/* Base YAML and Reset beside the parameter base: transparent bordered buttons (localsite .btn-clear),
+   with less rounded corners than localsite's pill-shaped .btn */
+a.rs-param-button,
+button.rs-param-button {
+  font-size: 14px;
+  padding: 5px 12px;
+  border-radius: 6px;
+  line-height: 1.3;
+}
