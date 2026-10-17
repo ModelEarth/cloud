@@ -108,7 +108,16 @@ def run_local_stream():
         """Load GitHub token from env vars or the automation/paths.yaml .env, trying keys in priority order."""
         import re
         priority = ['GITHUB_REPORTS_TOKEN', 'GITHUB_PERSONAL_ACCESS_TOKEN', 'GITHUB_TOKEN']
-        # Check environment variables first
+        # Local key store first (OS credential store, see utils/keystore.py and /keys)
+        try:
+            from utils import keystore
+            for key in priority:
+                val = keystore.get_key(key, caller='run-local-stream')
+                if val:
+                    return val, key, None
+        except Exception as exc:
+            print(f"[WARN] keystore: {exc}", file=sys.stderr)
+        # Check environment variables next
         for key in priority:
             val = os.environ.get(key, '').strip()
             if val and 'placeholder' not in val.lower():
