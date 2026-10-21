@@ -12,7 +12,6 @@ from flask_cors import CORS
 
 from routes.core_routes import core_blueprint
 from routes.notebook_runner import notebook_blueprint
-from routes.keys_routes import keys_blueprint
 
 app = Flask(__name__)
 
@@ -26,7 +25,7 @@ CORS(
 
 app.register_blueprint(core_blueprint)
 app.register_blueprint(notebook_blueprint)
-app.register_blueprint(keys_blueprint)   # /keys, served to localhost only
+# The local /keys page moved to realitystream/api/main.py (python realitystream/api/main.py, then localhost:8080/keys)
 
 @app.route("/health")
 def health():

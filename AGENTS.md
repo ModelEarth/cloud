@@ -1,5 +1,7 @@
 # Cloud - AI CLI Guide
 
+These are older processes that may no longer be in use. The RealityStream Cloud Run deploy, its shared front end (`param-input.js`, `param.css`) and the local key store moved to the realitystream repo: see [realitystream/AGENTS.md](../realitystream/AGENTS.md).
+
 This file provides guidance to Claude Code (claude.ai/code) and other AI CLI processes when working with the cloud repository.
 
 ## Overview

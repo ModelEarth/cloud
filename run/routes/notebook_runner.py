@@ -108,9 +108,12 @@ def run_local_stream():
         """Load GitHub token from env vars or the automation/paths.yaml .env, trying keys in priority order."""
         import re
         priority = ['GITHUB_REPORTS_TOKEN', 'GITHUB_PERSONAL_ACCESS_TOKEN', 'GITHUB_TOKEN']
-        # Local key store first (OS credential store, see utils/keystore.py and /keys)
+        # Local key store first (OS credential store, see realitystream/api/keystore.py and its /keys page)
         try:
-            from utils import keystore
+            keystore_dir = os.path.join(WEBROOT, 'realitystream', 'api')
+            if keystore_dir not in sys.path:
+                sys.path.insert(0, keystore_dir)
+            import keystore
             for key in priority:
                 val = keystore.get_key(key, caller='run-local-stream')
                 if val:
