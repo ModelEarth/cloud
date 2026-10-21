@@ -36,7 +36,7 @@ Start Flask with the [Webroot Manager](../../team/setup/)
 - **Auto-sync** - Webhook support for automatic updates when repos change
 
 View [RealityStream](/realitystream) for live data visualization and model outputs.  
-View [Streamlit Interface](/streamlit/) for advanced data processing and visualization tools.
+The [Streamlit Interface](https://github.com/ModelEarth/streamlit) repo is archived (2026-10-21). Its model forms are being rebuilt in [Run Models](../../realitystream/models/).
 
 The application creates a web interface with configuration management and notebook execution capabilities.
 
